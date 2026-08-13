@@ -87,20 +87,32 @@ mvn clean package -DskipTests
 ### 使用
 
 ```bash
-# 1. 列出本机 Java 进程
-java -jar memshell-auditor.jar --list
+# 1. 全自动扫描所有 Java 进程（取证人员无需知道 PID，自动识别可疑进程）
+java -jar memshell-auditor.jar --scan [--dump dir] [--heap dir] [--ai-config ai.json] [--max-jvms 10]
 
-# 2. attach 到目标 JVM 执行完整审计（检测 + 取证 + AI 分析）
+# 2. attach 到指定 JVM 执行完整审计（检测 + 取证 + AI 分析）
 java -jar memshell-auditor.jar <PID> [--report out.json] [--dump dir] [--heap dir] [--ai-config ai.json]
 
 # 3. 生成混淆取证程序（防识别，每次随机特征）
 java -jar memshell-auditor.jar --gen-agent <输出目录> [--name-prefix <前缀>]
 #    生成的程序（如 system-diag-2c4488.jar）丢到目标系统取证：
-java -jar system-diag-2c4488.jar <PID> --dump ./dump --heap ./heap
+java -jar system-diag-2c4488.jar --scan --dump ./dump --heap ./heap
 
 # 4. 分析者机器上对取证报告做 AI 增强分析（OpenAI 兼容接口）
 java -jar memshell-auditor.jar --analyze <report.json> [--ai-config ai.json]
 ```
+
+### 全自动扫描（--scan）
+
+取证人员**不需要知道审计哪个 PID**，一条命令扫全部 Java 进程：
+
+```bash
+java -jar memshell-auditor.jar --scan
+```
+
+- **自动枚举**所有 Java 进程，按可疑度排序（Tomcat/Spring Boot/WebLogic 等 Web 容器优先，工具/守护进程降权，自动跳过自身）
+- **逐个审计**并汇总：按检出 HIGH 数排行，一眼锁定可疑进程
+- 实测 9 进程环境：自动识别 4 个高危目标（HIGH=2/1/1/1）+ 1 个正常，全程无需人工指定 PID
 
 ## 双程序架构（防取证识别）
 
