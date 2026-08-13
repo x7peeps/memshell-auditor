@@ -17,6 +17,18 @@ public class Report {
         startNanos = System.nanoTime();
     }
 
+    public long getPid() {
+        return pid;
+    }
+
+    public String getTargetDesc() {
+        return targetDesc;
+    }
+
+    public String getJavaVersion() {
+        return javaVersion;
+    }
+
     public void setPid(long pid) {
         this.pid = pid;
     }
@@ -66,6 +78,18 @@ public class Report {
             if (f.className != null) sb.append("     类  : ").append(f.className).append('\n');
             if (f.classLoader != null) sb.append("     Loader: ").append(f.classLoader).append('\n');
             sb.append("     原因: ").append(f.reason).append('\n');
+            if (f.dumpPath != null && !f.dumpPath.isEmpty()) {
+                sb.append("     Dump : ").append(f.dumpPath).append('\n');
+            }
+            if (f.callbackIps != null && !f.callbackIps.isEmpty()) {
+                sb.append("     回连 : ").append(f.callbackIps).append('\n');
+            }
+            if (f.coreCode != null && !f.coreCode.isEmpty()) {
+                sb.append("     核心代码片段:\n");
+                for (String line : f.coreCode.split("\n")) {
+                    sb.append("       ").append(line).append('\n');
+                }
+            }
             if (f.evidence != null && !f.evidence.isEmpty()) {
                 sb.append("     证据: ").append(f.evidence).append('\n');
             }
@@ -106,6 +130,138 @@ public class Report {
         sb.append("  ]\n");
         sb.append("}\n");
         return sb.toString();
+    }
+
+    /** 从 JSON 报告重建 Report 对象（用于 --analyze 分析取证报告） */
+    public static Report fromJson(String json) {
+        Report report = new Report();
+        report.begin();
+        try {
+            // 极简解析：提取顶层字段
+            report.pid = parseLongField(json, "\"pid\"");
+            report.targetDesc = parseStringField(json, "\"target\"");
+            report.javaVersion = parseStringField(json, "\"javaVersion\"");
+            // 解析 findings 数组
+            String findingsSection = extractArray(json, "\"findings\"");
+            if (findingsSection != null) {
+                // 按对象切分（简易：寻找 {"level" 开头）
+                int idx = 0;
+                while (true) {
+                    int start = findingsSection.indexOf("{\"level\"", idx);
+                    if (start < 0) break;
+                    // 找到对象结束（配对大括号）
+                    int end = findJsonObjectEnd(findingsSection, start);
+                    if (end < 0) break;
+                    String obj = findingsSection.substring(start, end + 1);
+                    Finding f = parseFinding(obj);
+                    if (f != null) report.add(f);
+                    idx = end + 1;
+                }
+            }
+        } catch (Throwable t) {
+            // ignore, 返回部分解析结果
+        }
+        return report;
+    }
+
+    private static Finding parseFinding(String obj) {
+        try {
+            String level = parseStringField(obj, "\"level\"");
+            String signal = parseStringField(obj, "\"signal\"");
+            String category = parseStringField(obj, "\"category\"");
+            String className = parseStringField(obj, "\"className\"");
+            String classLoader = parseStringField(obj, "\"classLoader\"");
+            String reason = parseStringField(obj, "\"reason\"");
+            String evidence = parseStringField(obj, "\"evidence\"");
+            String dumpPath = parseStringField(obj, "\"dumpPath\"");
+            String callbackIps = parseStringField(obj, "\"callbackIps\"");
+            Finding.Level lv;
+            try {
+                lv = Finding.Level.valueOf(level);
+            } catch (Throwable t) {
+                lv = Finding.Level.INFO;
+            }
+            Finding f = new Finding(lv, signal, category, className, classLoader, reason, evidence);
+            f.dumpPath = dumpPath;
+            f.callbackIps = callbackIps;
+            return f;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static String parseStringField(String json, String key) {
+        try {
+            String pattern = key + "\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"";
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(pattern).matcher(json);
+            if (m.find()) {
+                return m.group(1).replace("\\\"", "\"").replace("\\\\", "\\");
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    private static long parseLongField(String json, String key) {
+        try {
+            String pattern = key + "\\s*:\\s*(\\d+)";
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(pattern).matcher(json);
+            if (m.find()) return Long.parseLong(m.group(1));
+        } catch (Throwable ignored) {}
+        return -1;
+    }
+
+    private static String extractArray(String json, String key) {
+        try {
+            int idx = json.indexOf(key);
+            if (idx < 0) return null;
+            int bracket = json.indexOf('[', idx);
+            if (bracket < 0) return null;
+            int end = findJsonArrayEnd(json, bracket);
+            if (end < 0) return null;
+            return json.substring(bracket + 1, end);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static int findJsonObjectEnd(String s, int start) {
+        int depth = 0;
+        boolean inStr = false;
+        for (int i = start; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (inStr) {
+                if (c == '\\') { i++; continue; }
+                if (c == '"') inStr = false;
+            } else {
+                if (c == '"') inStr = true;
+                else if (c == '{') depth++;
+                else if (c == '}') {
+                    depth--;
+                    if (depth == 0) return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private static int findJsonArrayEnd(String s, int start) {
+        int depth = 0;
+        boolean inStr = false;
+        for (int i = start; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (inStr) {
+                if (c == '\\') { i++; continue; }
+                if (c == '"') inStr = false;
+            } else {
+                if (c == '"') inStr = true;
+                else if (c == '[') depth++;
+                else if (c == ']') {
+                    depth--;
+                    if (depth == 0) return i;
+                }
+            }
+        }
+        return -1;
     }
 
     private static String jsonEsc(String s) {

@@ -17,6 +17,10 @@ public class Finding {
     public String classLoader;  // 所属 ClassLoader 描述（可为空）
     public String reason;       // 判定原因（人类可读）
     public String evidence;     // 证据/命令参考（可为空）
+    // ---- 取证增强（v1.1+）：dump / 反编译 / 回连分析 ----
+    public String dumpPath;     // dump 落盘路径（可为空）
+    public String callbackIps;  // 疑似回连地址（IP/域名，可为空）
+    public String coreCode;     // 恶意核心代码片段（反汇编摘要，可为空）
 
     public Finding(Level level, String signal, String category, String className,
                    String classLoader, String reason, String evidence) {
@@ -59,6 +63,11 @@ public class Finding {
         sb.append(",\"classLoader\":\"").append(jsonEsc(classLoader)).append('"');
         sb.append(",\"reason\":\"").append(jsonEsc(reason)).append('"');
         sb.append(",\"evidence\":\"").append(jsonEsc(evidence)).append('"');
+        sb.append(",\"dumpPath\":\"").append(jsonEsc(dumpPath)).append('"');
+        sb.append(",\"callbackIps\":\"").append(jsonEsc(callbackIps)).append('"');
+        if (coreCode != null && !coreCode.isEmpty()) {
+            sb.append(",\"coreCode\":\"").append(jsonEsc(coreCode)).append('"');
+        }
         sb.append('}');
         return sb.toString();
     }

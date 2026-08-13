@@ -100,7 +100,7 @@ public final class ReflectUtil {
         return implementsInterface(cls, interfaceName);
     }
 
-    /** 判断 classLoader 是否为系统类加载器（Bootstrap/Platform/App） */
+    /** 判断 ClassLoader 是否为系统类加载器（Bootstrap/Platform/App） */
     public static boolean isSystemClassLoader(ClassLoader cl) {
         if (cl == null) return true; // bootstrap
         ClassLoader sys = ClassLoader.getSystemClassLoader();
@@ -120,5 +120,28 @@ public final class ReflectUtil {
             cur = cur.getParent();
         }
         return false;
+    }
+
+    /**
+     * 获取当前 agent 自身的包前缀（动态识别，兼容混淆版）。
+     * 主程序：com.memshellauditor；混淆版：net.jvm.check 等随机包。
+     * 用于审计时排除自身类，避免自误报。
+     */
+    public static String selfPackagePrefix() {
+        try {
+            String name = ReflectUtil.class.getName();
+            int idx = name.lastIndexOf('.');
+            if (idx > 0) return name.substring(0, idx); // 不含最后一个点
+        } catch (Throwable t) {
+            // ignore
+        }
+        return "com.memshellauditor";
+    }
+
+    /** 判断类名是否属于当前 agent 自身 */
+    public static boolean isSelfClass(String className) {
+        if (className == null) return false;
+        String prefix = selfPackagePrefix();
+        return prefix != null && !prefix.isEmpty() && className.startsWith(prefix + ".");
     }
 }

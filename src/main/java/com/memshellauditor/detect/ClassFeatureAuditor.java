@@ -37,7 +37,7 @@ public class ClassFeatureAuditor {
             // 跳过数组类、JDK/框架正常类、自身
             if (name.startsWith("[")) continue;
             if (isBenignPackage(name)) continue;
-            if (name.startsWith("com.memshellauditor.")) continue; // 自身
+            if (ReflectUtil.isSelfClass(name)) continue; // 自身（动态识别，兼容混淆版）
             total++;
             // A1 强信号：非系统 Loader 加载 + 磁盘无对应 class 文件 = defineClass 动态注入
             ClassLoader cl = cls.getClassLoader();

@@ -116,7 +116,7 @@ public class AgentAuditor {
             if (cls == null) continue;
             String fullName = cls.getName();
             // 排除自身与数组类
-            if (fullName.startsWith("com.memshellauditor.")) continue;
+            if (ReflectUtil.isSelfClass(fullName)) continue;
             if (fullName.startsWith("[")) continue;
             String name = fullName.toLowerCase();
             boolean suspicious = false;

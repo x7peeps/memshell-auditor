@@ -24,9 +24,18 @@ memshell-auditor 通过 **attach 到运行中的 JVM**，直接审计容器内�
 | **A1** | FilterDef/FilterConfig/Servlet/Listener/Valve 注册的类在磁盘无对应 class 文件 | 🔴 高度疑似（内存马核心特征） |
 | **A2** | 容器组件注册数量异常（对比基线） | 🔴 需人工复核 |
 | **A3** | 非系统 ClassLoader（自定义 Loader）加载恶意类 | 🟠 需人工复核 |
-| **A4** | `-javaagent`/`-agentlib`/`JAVA_TOOL_OPTIONS` 注入 Agent | 🔴 高度疑似 |
+| **A4** | `-javaagent`/`-agentlib`/`JAVA_TOOL_OPTIONS` 注入 Agent / 可疑 ClassFileTransformer | 🔴 高度疑似 |
 | **B1** | 类名特征（无包名/短随机名/恶意关键字） | 🟡 辅助信号 |
 | **B2** | 已加载类名含可疑关键字 | 🟡 辅助信号 |
+
+### 取证能力（v1.1+，检出后的闭环）
+
+| 能力 | 说明 | 状态 |
+|---|---|---|
+| **Dump 落盘** | 可疑类字节码提取并写盘（磁盘类用资源流，动态类用 retransform 技巧） | ✅ 实测通过 |
+| **反编译核心代码** | javap 反汇编 + 提取恶意核心片段（命令执行/网络/Base64 解密等） | ✅ 实测通过 |
+| **回连分析** | 进程 ESTABLISHED 外连分析 + 字节码字符串中的 IP/域名提取 | ✅ 基础版 |
+| **Callback 汇总** | 疑似回连地址统一汇总为 HIGH Finding（供威胁情报查询） | ✅ |
 
 ### 检测原理
 
@@ -81,11 +90,54 @@ mvn clean package -DskipTests
 # 1. 列出本机 Java 进程
 java -jar memshell-auditor.jar --list
 
-# 2. attach 到目标 JVM 执行审计（JDK 9+ 需要 --add-modules jdk.attach）
-java -jar memshell-auditor.jar <PID> [report.json]
+# 2. attach 到目标 JVM 执行完整审计（检测 + 取证 + AI 分析）
+java -jar memshell-auditor.jar <PID> [--report out.json] [--dump dir] [--heap dir] [--ai-config ai.json]
 
-# 3. 审计器输出 JSON 报告（控制台同时打印人类可读摘要）
+# 3. 生成混淆取证程序（防识别，每次随机特征）
+java -jar memshell-auditor.jar --gen-agent <输出目录> [--name-prefix <前缀>]
+#    生成的程序（如 system-diag-2c4488.jar）丢到目标系统取证：
+java -jar system-diag-2c4488.jar <PID> --dump ./dump --heap ./heap
+
+# 4. 分析者机器上对取证报告做 AI 增强分析（OpenAI 兼容接口）
+java -jar memshell-auditor.jar --analyze <report.json> [--ai-config ai.json]
 ```
+
+## 双程序架构（防取证识别）
+
+为了防止内存马识别取证工具（固定进程名/类名特征会被攻击者预判并反制），本工具采用**双程序架构**：
+
+| | 主程序 `memshell-auditor.jar` | 取证程序（--gen-agent 生成） |
+|---|---|---|
+| 位置 | 分析者机器 | 目标系统现场 |
+| 文件名 | 固定 | 随机（`system-diag-2c4488.jar` 等） |
+| 类名/包名 | `com.memshellauditor.*` | 每次随机（`net.jvm.check.*` 等） |
+| 字符串特征 | memshell/auditor 等 | 中性化（javacore/classcore） |
+| 规则匹配 | ✅ | ✅（内置规则引擎，离线可用） |
+| **AI 能力** | ✅ | ❌（AI 仅在主程序） |
+| 工作流 | 生成取证程序 → 分析取证报告 | 现场检测 + dump + 内存取证 + 规则分析 |
+
+**工作流**：
+1. 分析者机器：`--gen-agent` 生成混淆取证程序（每次特征随机，攻击者无法预判）
+2. 现场：取证程序 attach 目标 JVM，检测 + dump + 堆内存取证 + 本地规则匹配分析，产出报告 JSON
+3. 分析端：取证报告带回，`--analyze` 用 AI（OpenAI 兼容）增强分析恶意行为/回连/处置建议
+
+## AI 增强分析（OpenAI 通用兼容）
+
+```bash
+# 配置方式1：JSON 配置文件（推荐，不硬编码密钥）
+cat > ai.json <<'EOF'
+{"base_url": "https://api.deepseek.com/v1", "api_key": "sk-xxx", "model": "deepseek-chat"}
+EOF
+java -jar memshell-auditor.jar --analyze report.json --ai-config ai.json
+
+# 配置方式2：环境变量
+AI_BASE_URL=https://api.deepseek.com/v1 AI_API_KEY=sk-xxx AI_MODEL=deepseek-chat \
+  java -jar memshell-auditor.jar --analyze report.json
+```
+
+- **兼容一切 OpenAI 协议服务**：OpenAI / DeepSeek / 通义千问 / 智谱 / 本地 Ollama / vLLM
+- **可配可跳过**：无配置自动降级本地规则分析（离线现场完全可用）
+- **零依赖**：标准 `HttpURLConnection` 实现，不引入 SDK
 
 示例：
 
@@ -135,26 +187,41 @@ java -javaagent:/path/to/memshell-auditor.jar -jar app.jar
 
 ```
 src/main/java/com/memshellauditor/
-├── AgentMain.java           # agent 入口（premain/agentmain）
-├── AuditorMain.java         # CLI 启动器（attach）
+├── AgentMain.java           # agent 入口（premain/agentmain，含取证端规则分析）
+├── AuditorMain.java         # CLI 启动器（attach/--gen-agent/--analyze）
 ├── detect/
 │   ├── ContainerAuditor.java    # 容器组件审计（Filter/Servlet/Listener/Valve）
 │   ├── AgentAuditor.java        # 启动参数/Agent 型检测
+│   ├── TransformerAuditor.java  # ClassFileTransformer 审计（Agent 型内存马）
 │   ├── ClassLoaderAuditor.java  # ClassLoader 血缘
-│   └── ClassFeatureAuditor.java # 类特征 + defineClass 检测
+│   ├── ClassFeatureAuditor.java # 类特征 + defineClass 检测
+│   └── HeuristicAuditor.java    # 未知内存马启发式检测（行为模式组合评分）
+├── dump/
+│   ├── ForensicsService.java    # 取证闭环编排（dump+反编译+回连）
+│   ├── ClassDumper.java         # 字节码提取落盘（retransform 技巧）
+│   ├── Decompiler.java          # javap 反汇编 + 核心代码提取
+│   ├── NetworkAnalyzer.java     # 进程外连分析
+│   └── MemoryForensics.java     # 跨平台堆内存取证（jmap）
+├── ai/
+│   ├── AiClient.java        # OpenAI 通用兼容客户端（零依赖）
+│   └── AiAnalyzer.java      # AI 增强分析（引导式配置/跳过/降级）
+├── obf/
+│   ├── ClassRewriter.java       # class 常量池重写器（字节码级混淆）
+│   └── ObfuscateAgentGenerator.java # 混淆取证程序生成器
 ├── report/
 │   ├── Finding.java         # 发现项（level/signal/category）
-│   └── Report.java          # 报告聚合（控制台/JSON）
+│   └── Report.java          # 报告聚合（控制台/JSON/重建）
 └── util/
-    └── ReflectUtil.java     # 零依赖反射工具
+    └── ReflectUtil.java     # 零依赖反射工具（含动态自排除）
 ```
 
 ## 局限性（坦诚声明）
 
-1. **Agent 型内存马（Instrumentation transformer 注入）**：JDK 标准 API 无法枚举已注册的 ClassFileTransformer，目前通过启动参数 + 类特征间接检测；完整 transformer 审计需结合 JVMTI 工具
-2. **容器定位依赖 WebappClassLoader**：极度精简的 classpath 模式（非 WAR 部署）可能定位不到 StandardContext，此时依赖 MBean 辅助与类特征检测
-3. **误报需人工复核**：A3/B1/B2 为辅助信号，无包名等特征也可能来自合法动态代理
-4. **运行时窗口**：attach 只能看到当前已加载的类；内存马在 attach 前已执行完的恶意行为不在检测范围（这是所有运行时检测的共性）
+1. **JMG 混淆载荷的 dump 限制**：Behinder 等规整载荷可完整 dump+反编译；Suo5 等经过激进 ASM 处理的载荷，JVM 拒绝 retransform（invalid class）——此类依赖 jmap 堆 dump 兜底，CodeSource=null 仍可作为 A1 补充证据
+2. **Agent 型内存马（Instrumentation transformer 注入）**：JDK 标准 API 无法枚举已注册的 ClassFileTransformer，通过内部字段探测 + 类特征间接检测（高版本 JDK 部分受限）
+3. **回连分析噪声**：lsof 会混入本机其他服务的连接（代理/远程控制等），需结合 dump 代码中的硬编码 IP 与威胁情报确认
+4. **容器定位依赖 WebappClassLoader**：极度精简的 classpath 模式（非 WAR 部署）可能定位不到 StandardContext
+5. **运行时窗口**：attach 只能看到当前已加载的类；内存马在 attach 前已执行完的恶意行为不在检测范围
 
 ## License
 

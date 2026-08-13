@@ -83,6 +83,7 @@ public class ContainerAuditor {
             // 方式1: 遍历已加载类，通过类.getClassLoader() 拿到 WebappClassLoaderBase 实例
             //   WebappClassLoaderBase.resources(字段) -> StandardRoot.getContext() -> StandardContext
             //   适用于生产 WAR 部署（存在 WebappClassLoader）；embed/classpath 模式无此 Loader
+            //   兼容国产中间件：TongWeb/BES/InforSuite 均基于 Tomcat 变体，Loader 类名含 webapp
             try {
                 Set<ClassLoader> seen = new HashSet<ClassLoader>();
                 for (Class<?> cls : loaded) {
@@ -139,11 +140,19 @@ public class ContainerAuditor {
         String name = loaderClass.getName();
         if (name.startsWith("org.apache.catalina.loader")) return true;
         if (name.startsWith("com.caucho")) return true;             // Resin
+        if (name.startsWith("com.tongweb")) return true;            // 东方通 TongWeb
+        if (name.startsWith("com.bes")) return true;                // 宝兰德 BES
+        if (name.startsWith("org.infor")) return true;              // 中创 InforSuite
+        if (name.startsWith("com.apusic")) return true;             // 金蝶 Apusic
+        if (name.startsWith("com.primeton")) return true;           // 普元 Primeton
         if (name.contains("webapp") || name.contains("Webapp")) return true;
         Class<?> c = loaderClass.getSuperclass();
         while (c != null && c != Object.class) {
             String cn = c.getName();
             if (cn.startsWith("org.apache.catalina.loader")) return true;
+            if (cn.startsWith("com.tongweb") || cn.startsWith("com.bes")
+                    || cn.startsWith("org.infor") || cn.startsWith("com.apusic")
+                    || cn.startsWith("com.primeton")) return true;
             if (cn.contains("webapp") || cn.contains("Webapp")) return true;
             c = c.getSuperclass();
         }
