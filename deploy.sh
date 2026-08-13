@@ -8,9 +8,9 @@
 set -e
 
 INSTALL_DIR="${1:-$HOME/memshell-auditor}"
-VERSION="v2.2"
+VERSION="v2.6"
 REPO="x7peeps/memshell-auditor"
-RULES_REPO="x7peeps/memshell-rules"
+RULES_REPO="x7peeps/memshell-auditor"
 
 echo "=========================================="
 echo " memshell-auditor 一键部署 ($VERSION)"

@@ -115,9 +115,9 @@ A1 强信号误报极低（磁盘无 class 是硬证据）；B 系辅助信号�
 ## 九、链接
 
 - 主程序仓库：https://github.com/x7peeps/memshell-auditor
-- 特征库仓库：https://github.com/x7peeps/memshell-rules
+- 特征库（并入主仓库 rules/）：https://github.com/x7peeps/memshell-auditor/tree/main/rules
 - 部署脚本：https://raw.githubusercontent.com/x7peeps/memshell-auditor/main/deploy.sh
-- 规则模板：https://github.com/x7peeps/memshell-rules/blob/main/rules/template.json
+- 规则模板：https://github.com/x7peeps/memshell-auditor/blob/main/rules/template.json
 
 ---
 
