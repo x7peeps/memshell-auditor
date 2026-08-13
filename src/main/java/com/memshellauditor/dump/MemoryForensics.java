@@ -62,24 +62,28 @@ public final class MemoryForensics {
     }
 
     /**
-     * 从 hprof 文件中搜索可疑字节码/字符串（轻量版）。
-     * 完整分析建议用 MAT，这里提供快速信号：搜索 cafebabe 魔数与关键字符串出现次数。
+     * 从 hprof 文件中做深度解析（HprofParser：字符串/类名/恶意特征/类字节码统计）。
+     * 返回解析摘要，详细结果由 HprofParser.parse 获得。
      */
     public static String quickScan(String hprofPath) {
         if (hprofPath == null) return null;
         try {
             File f = new File(hprofPath);
-            if (!f.exists() || f.length() > 200 * 1024 * 1024) return null; // 限制 200MB
-            byte[] data = java.nio.file.Files.readAllBytes(f.toPath());
-            StringBuilder sb = new StringBuilder();
-            int magicCount = countOccurrences(data, new byte[]{(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE});
-            sb.append("cafebabe类魔数出现: ").append(magicCount).append(" 次\n");
-            // 搜索关键字符串（UTF-8 简单子串）
-            String[] keywords = {"memshell", "behinder", "godzilla", "Runtime.getRuntime",
-                    "ProcessBuilder", "getParameter", "Socket", "Base64", "Cipher"};
-            for (String kw : keywords) {
-                int c = countOccurrences(data, kw.getBytes("UTF-8"));
-                if (c > 0) sb.append("  含 '").append(kw).append("': ").append(c).append(" 处\n");
+            if (!f.exists()) return null;
+            HprofParser.HprofResult r = HprofParser.parse(f);
+            if (r.suspicious.isEmpty()) {
+                return r.summary;
+            }
+            // 附上前几条恶意特征命中
+            StringBuilder sb = new StringBuilder(r.summary);
+            sb.append(" | 命中示例: ");
+            int shown = 0;
+            for (String s : r.suspicious) {
+                if (shown >= 3) break;
+                String t = s.replace("\n", " ").replace("\r", " ").trim();
+                if (t.length() > 60) t = t.substring(0, 60) + "...";
+                sb.append("[").append(t).append("] ");
+                shown++;
             }
             return sb.toString();
         } catch (Throwable t) {

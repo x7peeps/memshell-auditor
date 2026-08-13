@@ -286,3 +286,21 @@ banner: 补充策略: 规则 2 条（官方 1 / 自定义 1）启用 2 条
 10427 = 冰蝎/隧道常用端口，正确命中 HIGH。
 
 **踩坑（JSON 中文转义）**：JSON 序列化后中文变成 \uXXXX，用 indexOf("提取到疑似回连地址") 匹配不到 → 改从已解析的 Report 对象提取（report.findings 遍历 Callback/Network），不再读原始 JSON 字符串。**教训：能解析对象就用对象，别在转义 JSON 字符串上做字符串匹配。**
+
+## 问题 18：研究5 —— hprof 堆转储自动化解析（解决局限1 兜底）
+
+**目标**：retransform 失败的载荷（Suo5 等）在堆 dump 中恢复证据。
+
+**实现**：HprofParser（零依赖 hprof 二进制解析）：
+- STRING 记录 → 提取全部字符串（类名/IP/命令/签名）
+- LOAD CLASS 记录 → 类名列表
+- 恶意特征扫描（ClassLoader/defineClass/Cipher/Base64 等 14 关键字）
+- cafebabe 魔数统计（堆中类字节码段数）
+
+**验证**（heap-44559.hprof，T9+Suo5 靶场）：
+```
+hprof 解析: 字符串 80103 条 / 类 3389 个 / 恶意特征命中 1294 / 类字节码 305 段
+搜 SessionKqvc: [org.springframework.SessionKqvcFilter] ✓ ← retransform 失败的 Suo5 载荷类名从堆中完整提取
+```
+
+**踩坑（hprof 文件头格式）**：idSize 是 **u4（4 字节大端）** 不是 u1——JDK 26 jmap 输出 idSize=0x00000008；读 1 字节得 0x00 导致记录解析全错。用 hexdump 逐字节诊断才定位（HprofDebug）。
