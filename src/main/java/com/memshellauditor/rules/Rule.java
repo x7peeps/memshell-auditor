@@ -9,7 +9,7 @@ import java.util.Map;
  *
  * 规则结构（对应 memshell-rules 仓库 template.json）：
  * {
- *   "id": "MS-001",
+ *   "id": "JMSH-001",
  *   "name": "Tomcat Filter 磁盘无 class 文件",
  *   "signal": "A1",
  *   "category": "Filter",

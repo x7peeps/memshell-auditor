@@ -161,7 +161,7 @@ public final class ObfuscateAgentGenerator {
                 // 只打包已勾选规则
                 if (!com.memshellauditor.rules.RuleStore.isSelected(id)) continue;
                 byte[] data = java.nio.file.Files.readAllBytes(f.toPath());
-                // 用规则文件的真实 id 重命名（兼容 id 与文件名不一致：MS-001 vs MS-001-filter-no-class）
+                // 用规则文件的真实 id 重命名（兼容 id 与文件名不一致：JMSH-001 vs 长文件名）
                 String entryName = f.getName();
                 try {
                     com.memshellauditor.rules.Rule r = com.memshellauditor.rules.Rule.fromMap(

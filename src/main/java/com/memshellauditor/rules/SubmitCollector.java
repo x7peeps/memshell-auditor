@@ -64,7 +64,7 @@ public class SubmitCollector {
                 if (f.className == null || f.className.isEmpty()) continue;
                 // 跳过已知规则已覆盖的（简化：按 category+className 粗略判断）
                 Rule cand = new Rule();
-                cand.id = "MS-" + (baseId + added);
+                cand.id = "JMSH-" + (baseId + added);
                 cand.name = f.category + " 内存马特征: " + shortClass(f.className);
                 cand.signal = (f.signal != null && !f.signal.isEmpty()) ? f.signal : "A1";
                 cand.category = f.category;

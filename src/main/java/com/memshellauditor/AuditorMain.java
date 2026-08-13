@@ -149,7 +149,7 @@ public class AuditorMain {
         System.out.println("        --rules update            拉取/更新特征库");
         System.out.println("        --rules list              列出规则（提交人/标题/勾选状态）");
         System.out.println("        --rules select --all      全选规则");
-        System.out.println("        --rules select --id MS-001 --id MS-002  逐个勾选");
+        System.out.println("        --rules select --id JMSH-001 --id JMSH-002  逐个勾选");
         System.out.println("        --rules download <repo>   下载他人特征库");
         System.out.println("        --rules status            本地规则状态");
         System.out.println();

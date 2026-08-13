@@ -204,3 +204,26 @@ banner: 补充策略: 规则 2 条（官方 1 / 自定义 1）启用 2 条
 **事故教训**：--submit --auto-commit 测试时，SubmitCollector 用提交包的 index.json **整体覆盖**官方 index（127 行被删只剩 1 条）→ 官方仓库被污染。
 **修复**：改为 mergeIndex（新规则追加到现有索引，绝不覆盖），恢复官方 index 18 条 + 删除测试规则 MS-118。
 **教训**：自动提交功能必须合并而非替换，防止污染官方索引——这是众包系统的关键安全设计。
+
+## 问题 13：matplotlib 中文字体方框（文章配图事故）
+
+**症状**：文章配图所有中文显示为方框（□），vision 第一轮误判"正常"，老大肉眼抓出。
+
+**根因**：`plt.rcParams['font.family'] = 'Arial Unicode MS'` 仅设置字体名，matplotlib 的 fontManager 未正确解析/注册该字体文件 → 中文缺字形渲染成方框。加 addfont() 后仍失败（rcParams 方法不稳定）。
+
+**最终修复**：**每个 text 调用显式传 `fontproperties=FontProperties(fname='/Library/Fonts/Arial Unicode.ttf')`**——直接指定字体文件路径，绕过 fontManager 名称解析，100% 可靠。
+
+**验证**：vision 三轮确认（03 信号体系图 + 08 终端图均"正常"）；网站 CI success + 公众号草稿 img_count 5 回读通过。
+
+**教训**：matplotlib 中文渲染，**永远用 FontProperties(fname=绝对路径) 显式指定**，不要依赖 rcParams family 名称；vision 判断字体方框可能误判，重要图让老大最终确认。
+
+## 问题 14：规则编号 MS- 前缀与微软漏洞编号混淆
+
+**背景（老大指出）**：规则编号 MS-001 等与微软漏洞编号（MS17-010）过于相像，易混淆。
+
+**方案**：前缀改为 JMSH-（Java MemShell），明确指向内存马检测。
+- 规则仓库 18 文件重命名 + id 字段更新 + index.json/template/CONTRIBUTING 同步
+- SubmitCollector 候选规则 id 生成改 JMSH-100+
+- 代码注释/示例、网站文章、公众号 HTML 全部同步
+
+**验证**：本地 --rules update 拉取 JMSH-001~018 成功；公众号草稿回读 has_JMSH=True has_MS_old=False；网站已推送。

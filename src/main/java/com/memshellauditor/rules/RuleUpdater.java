@@ -219,7 +219,7 @@ public class RuleUpdater {
             }
         }
         if (!hasId) {
-            System.out.println("[!] 用法: --rules select --all  或  --rules select --id MS-001 --id MS-002");
+            System.out.println("[!] 用法: --rules select --all  或  --rules select --id JMSH-001 --id JMSH-002");
             return;
         }
         // 合并已选
