@@ -1,0 +1,19 @@
+{
+  "id": "JMSH-003",
+  "name": "继承 ClassLoader 的容器组件",
+  "signal": "A1",
+  "category": "Filter",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "Filter/Listener 继承 ClassLoader（动态加载后门载荷的特征）",
+  "version": "1.0",
+  "description": "冰蝎 Filter 内存马实测：class extends ClassLoader implements Filter——通过继承 ClassLoader 获得 defineClass 能力，动态加载后续载荷。这是 Web 容器组件不应有的继承关系。",
+  "match": {
+    "type": "loader_suspect",
+    "classname_regex": "",
+    "behavior_keywords": ["defineClass", "Base64", "Cipher"],
+    "min_behaviors": 1,
+    "loader_prefix": "",
+    "disk_check": false
+  }
+}

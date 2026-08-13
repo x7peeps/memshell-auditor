@@ -1,0 +1,23 @@
+{
+  "id": "JMSH-008",
+  "name": "WebSocket Endpoint 动态注册",
+  "signal": "A1",
+  "category": "WebSocket",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "WebSocket Endpoint 动态注册 + 磁盘无 class（绕过 HTTP 过滤器）",
+  "version": "1.0",
+  "description": "内存马注册为 WebSocket Endpoint，流量不走 HTTP Filter 链，常规过滤器检测失效。",
+  "match": {
+    "type": "classname_pattern",
+    "classname_regex": ".*(Endpoint|WsEndpoint|WebSocket).*",
+    "behavior_keywords": [
+      "getBasicRemote",
+      "onMessage",
+      "getSession"
+    ],
+    "min_behaviors": 2,
+    "loader_prefix": "webapp",
+    "disk_check": true
+  }
+}

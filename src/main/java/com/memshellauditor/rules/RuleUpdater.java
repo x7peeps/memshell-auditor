@@ -24,12 +24,13 @@ import java.util.Map;
  *   --rules download <repo>   # 下载他人特征库（如 user/repo）
  *   --rules status            # 本地规则状态
  *
- * 默认规则仓库：https://github.com/x7peeps/memshell-rules
+ * 默认规则仓库：https://github.com/x7peeps/memshell-auditor/tree/main/rules
+ * （v2.5+ 特征库已并入主仓库 rules/ 目录，规则即代码，随版本发版）
  * 规则文件路径：rules/<id>.json（每个规则一个文件，便于 diff/PR）
  */
 public class RuleUpdater {
 
-    private static final String DEFAULT_REPO = "x7peeps/memshell-rules";
+    private static final String DEFAULT_REPO = "x7peeps/memshell-auditor";
     private static final String RAW_PREFIX = "https://raw.githubusercontent.com/";
 
     public static void dispatch(String action, String[] args, Map<String, String> opts) {
@@ -65,9 +66,10 @@ public class RuleUpdater {
     /** 从 GitHub 拉取特征库（增量同步：只覆盖官方规则，保留本地自定义） */
     public static void update(String repo) {
         System.out.println("[*] 从 " + repo + " 拉取特征库...");
-        // 拉取策略版本
-        String ver = fetch(RAW_PREFIX + repo + "/main/version");
-        if (ver == null) ver = fetch(RAW_PREFIX + repo + "/master/version");
+        // 拉取策略版本（v2.5+ 规则并入主仓库 rules/ 子目录）
+        String ver = fetch(RAW_PREFIX + repo + "/main/rules/version");
+        if (ver == null) ver = fetch(RAW_PREFIX + repo + "/master/rules/version");
+        if (ver == null) ver = fetch(RAW_PREFIX + repo + "/main/version"); // 兼容旧布局
         if (ver != null && !ver.trim().isEmpty()) {
             com.memshellauditor.VersionInfo.writeRuleVersion(ver.trim());
             System.out.println("[*] 策略版本: " + ver.trim());

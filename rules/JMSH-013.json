@@ -1,0 +1,24 @@
+{
+  "id": "JMSH-013",
+  "name": "Base64 载荷解密 + 命令执行组合",
+  "signal": "A1",
+  "category": "Heuristic",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "Base64 解码 + Runtime.exec/ProcessBuilder 组合（WebShell 核心行为）",
+  "version": "1.0",
+  "description": "内存马必然具备载荷解密（Base64/AES）与命令执行（Runtime.exec/ProcessBuilder）行为组合。",
+  "match": {
+    "type": "behavior_pattern",
+    "classname_regex": "",
+    "behavior_keywords": [
+      "Base64",
+      "Runtime.getRuntime",
+      "ProcessBuilder",
+      "exec("
+    ],
+    "min_behaviors": 2,
+    "loader_prefix": "",
+    "disk_check": false
+  }
+}

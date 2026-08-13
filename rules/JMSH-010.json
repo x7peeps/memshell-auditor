@@ -1,0 +1,23 @@
+{
+  "id": "JMSH-010",
+  "name": "容器组件实现类无包名（顶级类）",
+  "signal": "B1",
+  "category": "ClassFeature",
+  "level": "MEDIUM",
+  "author": "x7peeps",
+  "title": "实现 Filter/Servlet/Listener 的无包名顶级类",
+  "version": "1.0",
+  "description": "正常业务类几乎都有包名；无包名 + 容器组件接口 = 可疑（动态代理/内存马常见）。",
+  "match": {
+    "type": "classname_pattern",
+    "classname_regex": "^[A-Z][A-Za-z0-9_]{2,20}$",
+    "behavior_keywords": [
+      "getParameter",
+      "getHeader",
+      "doFilter"
+    ],
+    "min_behaviors": 1,
+    "loader_prefix": "",
+    "disk_check": true
+  }
+}

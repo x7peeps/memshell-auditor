@@ -1,0 +1,25 @@
+{
+  "id": "JMSH-014",
+  "name": "AES/Cipher 载荷解密",
+  "signal": "A1",
+  "category": "Heuristic",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "AES/Cipher 加解密 + 请求参数驱动（加密流量内存马）",
+  "version": "1.0",
+  "description": "冰蝎/哥斯拉等加密流量内存马用 AES/Cipher 加解密载荷，配合 getParameter/getHeader 取密文。",
+  "match": {
+    "type": "behavior_pattern",
+    "classname_regex": "",
+    "behavior_keywords": [
+      "Cipher",
+      "AES",
+      "doFinal",
+      "getParameter",
+      "getHeader"
+    ],
+    "min_behaviors": 2,
+    "loader_prefix": "",
+    "disk_check": false
+  }
+}

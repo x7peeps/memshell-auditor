@@ -1,0 +1,24 @@
+{
+  "id": "JMSH-012",
+  "name": "大小写混淆类名",
+  "signal": "B1",
+  "category": "ClassFeature",
+  "level": "MEDIUM",
+  "author": "x7peeps",
+  "title": "类名大小写混写（如 WsFilter/HttpServlet 变体）规避关键词检测",
+  "version": "1.0",
+  "description": "攻击者用大小写混淆绕过类名黑名单，如 wSfIlTeR。检测随机大小写模式。",
+  "match": {
+    "type": "classname_pattern",
+    "classname_regex": ".*[A-Z]{2,}[a-z]+[A-Z]{2,}.*",
+    "behavior_keywords": [
+      "getParameter",
+      "Base64",
+      "Cipher",
+      "getHeader"
+    ],
+    "min_behaviors": 1,
+    "loader_prefix": "",
+    "disk_check": false
+  }
+}

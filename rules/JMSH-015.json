@@ -1,0 +1,24 @@
+{
+  "id": "JMSH-015",
+  "name": "MethodHandles.Lookup.defineClass（JDK17+）",
+  "signal": "A1",
+  "category": "ClassFeature",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "MethodHandles.Lookup.defineClass 动态加载（JDK17+ 注入新路径）",
+  "version": "1.0",
+  "description": "JDK17+ 模块系统限制反射 defineClass，攻击者改用 MethodHandles.Lookup.defineClass 注入。",
+  "match": {
+    "type": "behavior_pattern",
+    "classname_regex": "",
+    "behavior_keywords": [
+      "MethodHandles",
+      "Lookup",
+      "defineClass",
+      "unreflect"
+    ],
+    "min_behaviors": 2,
+    "loader_prefix": "",
+    "disk_check": false
+  }
+}

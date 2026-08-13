@@ -1,0 +1,19 @@
+{
+  "id": "JMSH-005",
+  "name": "Valve 伪装 Spring 类名",
+  "signal": "A1",
+  "category": "Valve",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "org.springframework.* 随机后缀 Valve",
+  "version": "1.0",
+  "description": "JMG 实测：哥斯拉 Valve 伪装为 org.springframework.AbstractMatcherGbValve——Valve 型内存马绕过滤器链检测，注册在 Catalina 容器层级。",
+  "match": {
+    "type": "classname_pattern",
+    "classname_regex": "org\\.springframework\\.[A-Z][a-zA-Z]{4,25}[A-Z]{3,8}[a-z]?Valve",
+    "behavior_keywords": ["Base64", "Cipher", "getParameter", "getHeader"],
+    "min_behaviors": 2,
+    "loader_prefix": "webapp",
+    "disk_check": true
+  }
+}

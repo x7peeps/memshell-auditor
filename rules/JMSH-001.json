@@ -1,0 +1,19 @@
+{
+  "id": "JMSH-001",
+  "name": "Filter 注册类磁盘无 class 文件",
+  "signal": "A1",
+  "category": "Filter",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "FilterDef 动态注册且磁盘无对应 class → 内存马强信号",
+  "version": "1.0",
+  "description": "内存马最常见形态：通过反序列化/表达式注入 defineClass 动态注册 Filter，磁盘无 class 文件。JMG/哥斯拉/冰蝎均为此形态。",
+  "match": {
+    "type": "filterdef_no_class_on_disk",
+    "classname_regex": "",
+    "behavior_keywords": [],
+    "min_behaviors": 0,
+    "loader_prefix": "webapp",
+    "disk_check": true
+  }
+}

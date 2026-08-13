@@ -1,0 +1,24 @@
+{
+  "id": "JMSH-011",
+  "name": "短随机类名 + 容器组件",
+  "signal": "B1",
+  "category": "ClassFeature",
+  "level": "MEDIUM",
+  "author": "x7peeps",
+  "title": "2-6 字符短随机类名实现容器组件（内存马生成器特征）",
+  "version": "1.0",
+  "description": "生成器（JMG 等）常生成 a1b2/z9x8 类短随机类名，正常业务类极少这么命名。",
+  "match": {
+    "type": "classname_pattern",
+    "classname_regex": "^[a-z][a-z0-9]{1,5}$",
+    "behavior_keywords": [
+      "getParameter",
+      "getHeader",
+      "doFilter",
+      "Base64"
+    ],
+    "min_behaviors": 1,
+    "loader_prefix": "",
+    "disk_check": true
+  }
+}

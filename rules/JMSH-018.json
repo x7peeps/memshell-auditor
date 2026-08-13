@@ -1,0 +1,23 @@
+{
+  "id": "JMSH-018",
+  "name": "反射获取 Instrumentation",
+  "signal": "A4",
+  "category": "Transformer",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "反射获取 Instrumentation 实例（绕过 -javaagent 挂载限制）",
+  "version": "1.0",
+  "description": "无 javaagent 参数时攻击者通过反射/静态字段窃取 Instrumentation 实例实现动态注入。",
+  "match": {
+    "type": "behavior_pattern",
+    "classname_regex": "",
+    "behavior_keywords": [
+      "Instrumentation",
+      "addTransformer",
+      "getInstrumentation"
+    ],
+    "min_behaviors": 2,
+    "loader_prefix": "",
+    "disk_check": false
+  }
+}

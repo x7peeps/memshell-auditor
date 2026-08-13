@@ -1,0 +1,19 @@
+{
+  "id": "JMSH-002",
+  "name": "Spring 伪装类名 Filter（冰蝎/哥斯拉特征）",
+  "signal": "A1",
+  "category": "Filter",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "org.springframework.* 随机后缀 Filter + 磁盘无 class",
+  "version": "1.0",
+  "description": "JMG 生成器实测：冰蝎 Filter 伪装为 org.springframework.ServletRequestAujFilter，哥斯拉为 WhiteBlackListGbyfbdFilter——Spring 包名 + 随机大写字母后缀，磁盘无 class。",
+  "match": {
+    "type": "classname_pattern",
+    "classname_regex": "org\\.springframework\\.[A-Z][a-zA-Z]{5,30}[A-Z]{1,6}[a-z]?Filter",
+    "behavior_keywords": ["doBase64Decode", "Cipher", "getHeader", "getParameter"],
+    "min_behaviors": 2,
+    "loader_prefix": "webapp",
+    "disk_check": true
+  }
+}

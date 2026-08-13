@@ -1,0 +1,19 @@
+{
+  "id": "JMSH-007",
+  "name": "Servlet 动态注册且磁盘无 class",
+  "signal": "A1",
+  "category": "Servlet",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "Servlet 动态注册 + 磁盘无 class → 内存马强信号",
+  "version": "1.0",
+  "description": "内存马通过反射调用 addServlet 动态注册，磁盘无对应 class 文件。适用 Tomcat/Spring Boot 内嵌。",
+  "match": {
+    "type": "filterdef_no_class_on_disk",
+    "classname_regex": "",
+    "behavior_keywords": [],
+    "min_behaviors": 0,
+    "loader_prefix": "webapp",
+    "disk_check": true
+  }
+}

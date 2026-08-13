@@ -1,0 +1,23 @@
+{
+  "id": "JMSH-017",
+  "name": "可疑 ClassFileTransformer 实现",
+  "signal": "A4",
+  "category": "Transformer",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "类名含 shell/inject/payload 的 ClassFileTransformer 实现",
+  "version": "1.0",
+  "description": "Agent 型内存马实现 ClassFileTransformer 改写字节码；类名含恶意关键词或非业务特征。",
+  "match": {
+    "type": "agent_transformer",
+    "classname_regex": "",
+    "behavior_keywords": [
+      "ClassFileTransformer",
+      "transform",
+      "bytecode"
+    ],
+    "min_behaviors": 1,
+    "loader_prefix": "",
+    "disk_check": false
+  }
+}

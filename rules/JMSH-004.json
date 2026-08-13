@@ -1,0 +1,19 @@
+{
+  "id": "JMSH-004",
+  "name": "Listener 伪装 Spring/Log4j 类名",
+  "signal": "A1",
+  "category": "Listener",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "org.springframework.* / org.apache.logging.* 随机后缀 Listener",
+  "version": "1.0",
+  "description": "JMG 实测：冰蝎 Listener 伪装为 org.apache.logging.Log4jConfigEaeListener / org.springframework.ContextLoaderDmasjListener——框架包名 + 随机后缀，磁盘无 class。",
+  "match": {
+    "type": "classname_pattern",
+    "classname_regex": "(org\\.springframework|org\\.apache\\.logging)\\.[A-Z][a-zA-Z]{4,25}[A-Z]{3,8}[a-z]?Listener",
+    "behavior_keywords": ["Base64", "Cipher", "getParameter", "ClassLoader"],
+    "min_behaviors": 2,
+    "loader_prefix": "webapp",
+    "disk_check": true
+  }
+}

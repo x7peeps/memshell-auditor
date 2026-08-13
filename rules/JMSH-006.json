@@ -1,0 +1,19 @@
+{
+  "id": "JMSH-006",
+  "name": "可疑 Agent 参数注入",
+  "signal": "A4",
+  "category": "Agent",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "-javaagent 预挂载 / javaagent 系统属性注入",
+  "version": "1.0",
+  "description": "Agent 型内存马通过 -javaagent 启动参数或动态 attach 注入，改写任意类字节码。检测启动命令与系统属性中的 agent 痕迹。",
+  "match": {
+    "type": "agent_transformer",
+    "classname_regex": "",
+    "behavior_keywords": ["javaagent", "agentlib", "JAVA_TOOL_OPTIONS"],
+    "min_behaviors": 1,
+    "loader_prefix": "",
+    "disk_check": false
+  }
+}

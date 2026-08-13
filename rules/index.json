@@ -1,0 +1,128 @@
+[
+  {
+    "id": "JMSH-001",
+    "name": "Filter 注册类磁盘无 class 文件",
+    "author": "x7peeps",
+    "title": "FilterDef 动态注册且磁盘无对应 class → 内存马强信号",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-002",
+    "name": "Spring 伪装类名 Filter（冰蝎/哥斯拉特征）",
+    "author": "x7peeps",
+    "title": "org.springframework.* 随机后缀 Filter + 磁盘无 class",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-003",
+    "name": "继承 ClassLoader 的容器组件",
+    "author": "x7peeps",
+    "title": "Filter/Listener 继承 ClassLoader（动态加载后门载荷的特征）",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-004",
+    "name": "Listener 伪装 Spring/Log4j 类名",
+    "author": "x7peeps",
+    "title": "org.springframework.* / org.apache.logging.* 随机后缀 Listener",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-005",
+    "name": "Valve 伪装 Spring 类名",
+    "author": "x7peeps",
+    "title": "org.springframework.* 随机后缀 Valve",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-006",
+    "name": "可疑 Agent 参数注入",
+    "author": "x7peeps",
+    "title": "-javaagent 预挂载 / javaagent 系统属性注入",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-007",
+    "name": "Servlet 动态注册且磁盘无 class",
+    "author": "x7peeps",
+    "title": "Servlet 动态注册 + 磁盘无 class → 内存马强信号",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-008",
+    "name": "WebSocket Endpoint 动态注册",
+    "author": "x7peeps",
+    "title": "WebSocket Endpoint 动态注册 + 磁盘无 class（绕过 HTTP 过滤器）",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-009",
+    "name": "Tomcat Upgrade/Protocol 处理器注入",
+    "author": "x7peeps",
+    "title": "Upgrade 协议处理器动态注册（绕过 Servlet 容器检测）",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-010",
+    "name": "容器组件实现类无包名（顶级类）",
+    "author": "x7peeps",
+    "title": "实现 Filter/Servlet/Listener 的无包名顶级类",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-011",
+    "name": "短随机类名 + 容器组件",
+    "author": "x7peeps",
+    "title": "2-6 字符短随机类名实现容器组件（内存马生成器特征）",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-012",
+    "name": "大小写混淆类名",
+    "author": "x7peeps",
+    "title": "类名大小写混写（如 WsFilter/HttpServlet 变体）规避关键词检测",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-013",
+    "name": "Base64 载荷解密 + 命令执行组合",
+    "author": "x7peeps",
+    "title": "Base64 解码 + Runtime.exec/ProcessBuilder 组合（WebShell 核心行为）",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-014",
+    "name": "AES/Cipher 载荷解密",
+    "author": "x7peeps",
+    "title": "AES/Cipher 加解密 + 请求参数驱动（加密流量内存马）",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-015",
+    "name": "MethodHandles.Lookup.defineClass（JDK17+）",
+    "author": "x7peeps",
+    "title": "MethodHandles.Lookup.defineClass 动态加载（JDK17+ 注入新路径）",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-016",
+    "name": "硬编码 IP + Socket 回连",
+    "author": "x7peeps",
+    "title": "字节码含硬编码 IP 且建立 Socket 连接（C2 回连特征）",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-017",
+    "name": "可疑 ClassFileTransformer 实现",
+    "author": "x7peeps",
+    "title": "类名含 shell/inject/payload 的 ClassFileTransformer 实现",
+    "version": "1.0"
+  },
+  {
+    "id": "JMSH-018",
+    "name": "反射获取 Instrumentation",
+    "author": "x7peeps",
+    "title": "反射获取 Instrumentation 实例（绕过 -javaagent 挂载限制）",
+    "version": "1.0"
+  }
+]

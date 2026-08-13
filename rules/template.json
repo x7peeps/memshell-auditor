@@ -1,0 +1,19 @@
+{
+  "id": "JMSH-000",
+  "name": "规则模板（复制此文件新建规则）",
+  "signal": "A1",
+  "category": "Filter",
+  "level": "HIGH",
+  "author": "your-github-username",
+  "title": "一句话描述特征",
+  "version": "1.0",
+  "description": "详细描述：特征来源、适用中间件、对抗方式等",
+  "match": {
+    "type": "classname_pattern",
+    "classname_regex": "",
+    "behavior_keywords": ["Runtime.getRuntime", "ProcessBuilder", "Cipher", "Socket"],
+    "min_behaviors": 2,
+    "loader_prefix": "",
+    "disk_check": true
+  }
+}

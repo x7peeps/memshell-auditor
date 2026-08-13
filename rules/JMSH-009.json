@@ -1,0 +1,23 @@
+{
+  "id": "JMSH-009",
+  "name": "Tomcat Upgrade/Protocol 处理器注入",
+  "signal": "A1",
+  "category": "Upgrade",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "Upgrade 协议处理器动态注册（绕过 Servlet 容器检测）",
+  "version": "1.0",
+  "description": "内存马注册为 Tomcat Upgrade 协议处理器（如 HTTP/2 升级），不经过 Filter/Servlet 链。",
+  "match": {
+    "type": "classname_pattern",
+    "classname_regex": ".*(Upgrade|Protocol|Processor).*",
+    "behavior_keywords": [
+      "getSocket",
+      "setProtocol",
+      "Socket"
+    ],
+    "min_behaviors": 2,
+    "loader_prefix": "webapp",
+    "disk_check": true
+  }
+}

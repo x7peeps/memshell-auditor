@@ -1,0 +1,24 @@
+{
+  "id": "JMSH-016",
+  "name": "硬编码 IP + Socket 回连",
+  "signal": "A1",
+  "category": "Callback",
+  "level": "HIGH",
+  "author": "x7peeps",
+  "title": "字节码含硬编码 IP 且建立 Socket 连接（C2 回连特征）",
+  "version": "1.0",
+  "description": "内存马反连 C2：代码中硬编码攻击者 IP/域名，运行时建立 Socket/URLConnection 连接。",
+  "match": {
+    "type": "behavior_pattern",
+    "classname_regex": "",
+    "behavior_keywords": [
+      "Socket",
+      "connect(",
+      "InetSocketAddress",
+      "URLConnection"
+    ],
+    "min_behaviors": 2,
+    "loader_prefix": "",
+    "disk_check": false
+  }
+}
