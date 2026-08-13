@@ -249,3 +249,40 @@ banner: 补充策略: 规则 2 条（官方 1 / 自定义 1）启用 2 条
 2. attach 必须用真实 Java PID（jps 确认），shell 管道 PID 会差几号
 3. JMG jakarta 载荷注入需要 jakarta.servlet 在 classpath（NoClassDefFoundError）
 4. live 模式的 stdout 被 attach 机制吞掉，验证要看报告/dump 目录
+
+## 问题 16：研究3 —— native JVMTI 类级字节码读取不可行（研究结论）
+
+**目标**：解决 JMG 混淆载荷 retransform 失败（InternalError: invalid class）的 dump 问题。
+
+**方案尝试**：写 native JVMTI 模块（nativejvmti.c），试图用 GetClassFileBytes 直接读取 JVM 内部字节码。
+
+**结论（查证 jvmti.h）**：
+- JVMTI 标准接口**没有 GetClassFileBytes**（这是 JDK 内部 sun.misc 私有 API）
+- JVMTI 只有 **GetBytecodes**（方法级字节码，非类级，且需 can_get_bytecodes 能力）
+- 类级字节码读取在标准 JVMTI 中不存在 → native 方案不可行
+
+**务实路线（已确认）**：
+1. **定义时捕获（主路径）**：LiveTransformer --live 模式（v2.3 已实现）——attach 后新加载类在定义瞬间拿字节码，不经过 retransform 校验
+2. **存量载荷兜底**：jmap 堆 dump（研究5 待做自动化解析）
+3. **报告标记**：retransform 失败的类标记"已定义时捕获/JMAP 兜底"提示
+
+**教训**：写 native 前先查 API 存在性——GetClassFileBytes 是 JDK 内部私有方法，非 JVMTI 标准；浪费一轮编译排错。
+
+## 问题 17：研究4 —— 威胁情报集成（解决回连分析噪声）
+
+**目标**：回连分析混入本机其他服务连接（代理/远程控制），需自动判定回连 IP 恶意性。
+
+**实现**：
+1. ThreatIntelClient（微步在线 API + 启发式降级）——零依赖
+   - API: api.threatbook.cn/v3/scene/ip_reputation（--ai-config 加 threatbook_key）
+   - 启发式: 非标准低端口/C2 隧道端口（10427/4444/5555/6666/8888/9000/10000）自动判 HIGH
+2. ReportAnalyzer 集成：从已解析 report.findings 提取 Callback/Network 类别回连地址 → 自动查询
+
+**验证**：
+```
+[threat] 威胁情报查询 34 个回连 IP（启发式降级）
+  🔴 HIGH 117.28.246.44:10427  [heuristic] high | 常见恶意软件/隧道端口(10427)
+```
+10427 = 冰蝎/隧道常用端口，正确命中 HIGH。
+
+**踩坑（JSON 中文转义）**：JSON 序列化后中文变成 \uXXXX，用 indexOf("提取到疑似回连地址") 匹配不到 → 改从已解析的 Report 对象提取（report.findings 遍历 Callback/Network），不再读原始 JSON 字符串。**教训：能解析对象就用对象，别在转义 JSON 字符串上做字符串匹配。**

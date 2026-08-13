@@ -70,9 +70,67 @@ public class ReportAnalyzer {
 
             // ===== 未命中规则的高危检出 → 提示提交新特征 =====
             checkUnmatchedFindings(report, reportFile);
+
+            // ===== 威胁情报查询（回连 IP 自动判定） =====
+            threatIntelScan(report, aiConfig);
         } catch (Throwable t) {
             System.err.println("[!] 报告解析失败: " + t);
             System.exit(2);
+        }
+    }
+
+    /** 对报告中疑似回连 IP 做威胁情报查询（微步 API，无 key 时启发式降级） */
+    private static void threatIntelScan(com.memshellauditor.report.Report report, String aiConfig) {
+        try {
+            String tbKey = null;
+            if (aiConfig != null && !aiConfig.isEmpty()) {
+                File cf = new File(aiConfig);
+                if (cf.exists()) {
+                    String cfg = new String(java.nio.file.Files.readAllBytes(cf.toPath()),
+                            java.nio.charset.StandardCharsets.UTF_8);
+                    int i = cfg.indexOf("threatbook_key");
+                    if (i >= 0) {
+                        int c = cfg.indexOf(':', i);
+                        if (c >= 0) {
+                            String v = cfg.substring(c + 1).replace("\"", "").trim();
+                            if (!v.isEmpty() && !v.startsWith("{")) tbKey = v;
+                        }
+                    }
+                }
+            }
+            // 从已解析的 report.findings 中提取 Callback 类别的回连地址（含完整 IP:端口）
+            java.util.List<String> ips = new java.util.ArrayList<String>();
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                    "(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})(?::(\\d+))?");
+            for (com.memshellauditor.report.Finding f : report.getFindings()) {
+                if (f.category == null) continue;
+                if (f.category.equals("Callback") || f.category.equals("Network")) {
+                    String src = (f.reason != null ? f.reason : "") + " " + (f.evidence != null ? f.evidence : "");
+                    java.util.regex.Matcher m = p.matcher(src);
+                    while (m.find()) {
+                        String ipPort = m.group(1) + (m.group(2) != null ? ":" + m.group(2) : "");
+                        if (!ips.contains(ipPort)) ips.add(ipPort);
+                    }
+                }
+            }
+            if (ips.isEmpty()) {
+                System.out.println("[threat] 报告未发现回连 IP，跳过威胁情报查询");
+                return;
+            }
+            com.memshellauditor.threat.ThreatIntelClient client =
+                    new com.memshellauditor.threat.ThreatIntelClient(tbKey);
+            System.out.println("[threat] 威胁情报查询 " + ips.size() + " 个回连 IP" + (tbKey != null ? "（微步 API）" : "（启发式降级）"));
+            for (String ip : ips) {
+                com.memshellauditor.threat.ThreatIntelClient.IntelResult r = client.lookup(ip);
+                String tag = "INFO";
+                if ("high".equals(r.severity)) tag = "🔴 HIGH";
+                else if ("middle".equals(r.severity)) tag = "🟠 MEDIUM";
+                else if ("low".equals(r.severity)) tag = "🟡 LOW";
+                System.out.println("  " + tag + " " + ip + "  [" + r.source + "] "
+                        + r.severity + " | " + r.judgments);
+            }
+        } catch (Throwable t) {
+            System.out.println("[threat] 威胁情报查询跳过: " + t);
         }
     }
 
