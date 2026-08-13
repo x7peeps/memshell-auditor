@@ -6,3 +6,7 @@ target/
 *.iml
 .vscode/
 rules-repo/
+
+# 扫描报告产物
+jre-check-scan-*.json
+memshell-auditor-scan-*.json
