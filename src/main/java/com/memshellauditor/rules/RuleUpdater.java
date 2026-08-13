@@ -62,7 +62,7 @@ public class RuleUpdater {
         }
     }
 
-    /** 从 GitHub 拉取特征库 */
+    /** 从 GitHub 拉取特征库（增量同步：只覆盖官方规则，保留本地自定义） */
     public static void update(String repo) {
         System.out.println("[*] 从 " + repo + " 拉取特征库...");
         // 拉取策略版本
@@ -80,6 +80,7 @@ public class RuleUpdater {
         if (indexContent == null) {
             System.err.println("[!] 拉取失败（网络不可达或仓库不存在）");
             System.err.println("  离线场景可手动放置规则文件到 ~/.memshell-rules/rules/");
+            com.memshellauditor.VersionInfo.writeUpdateStatus("failed", "拉取 index 失败");
             return;
         }
         // 解析 index（数组或对象）
@@ -94,13 +95,15 @@ public class RuleUpdater {
             Map<String, Object> m = (Map<String, Object>) x;
             list.add(m);
         }
-        System.out.println("[*] index 发现 " + list.size() + " 条规则");
-        int ok = 0, fail = 0;
+        System.out.println("[*] index 发现 " + list.size() + " 条官方规则");
+        int ok = 0, fail = 0, custom = RuleStore.listCustomRules().size();
+        java.util.Set<String> officialIds = new java.util.HashSet<String>();
         for (Object o : list) {
             if (!(o instanceof Map)) continue;
             Map<String, Object> entry = (Map<String, Object>) o;
             String id = str(entry.get("id"));
             if (id == null || id.isEmpty()) continue;
+            officialIds.add(id);
             String ruleUrl = RAW_PREFIX + repo + "/main/rules/" + RuleStore.sanitize(id) + ".json";
             String ruleJson = fetch(ruleUrl);
             if (ruleJson == null) {
@@ -109,6 +112,7 @@ public class RuleUpdater {
             }
             if (ruleJson != null) {
                 Rule rule = Rule.fromMap(new TinyJson().parseObject(ruleJson));
+                rule.origin = "official";
                 RuleStore.saveRule(rule);
                 ok++;
                 System.out.println("  ✓ " + id + "  " + truncate(rule.name, 50)
@@ -118,8 +122,59 @@ public class RuleUpdater {
                 System.out.println("  ✗ " + id + " 规则文件拉取失败");
             }
         }
-        System.out.println("[*] 更新完成: 成功 " + ok + ", 失败 " + fail);
+        // 增量同步：删除"官方目录中但官方索引已移除"的规则（保持官方目录与索引一致）
+        // 注意：自定义目录 rules-custom/ 完全不动，用户规则永不误删
+        int removed = 0;
+        try {
+            java.io.File[] localOfficial = RuleStore.rulesDir().listFiles();
+            if (localOfficial != null) {
+                for (java.io.File f : localOfficial) {
+                    if (!f.getName().endsWith(".json")) continue;
+                    String id = f.getName().replace(".json", "");
+                    if (!officialIds.contains(id)) {
+                        f.delete();
+                        removed++;
+                        System.out.println("  - " + id + " 已从官方目录移除（不在官方索引中）");
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            // ignore
+        }
+        System.out.println("[*] 更新完成: 成功 " + ok + ", 失败 " + fail
+                + ", 官方移除 " + removed + ", 自定义规则保留 " + custom + " 条");
+        // 版本联动：更新成功则推进策略版本（若已有旧版本则 bump minor）
+        String oldVer = com.memshellauditor.VersionInfo.readRuleVersion();
+        if (ver != null && !ver.trim().isEmpty()) {
+            if (oldVer != null && !oldVer.equals(ver.trim())) {
+                System.out.println("[*] 策略版本: " + oldVer + " → " + ver.trim());
+            }
+            com.memshellauditor.VersionInfo.writeRuleVersion(ver.trim());
+            com.memshellauditor.VersionInfo.writeUpdateStatus("ok", ver.trim() + ", " + ok + " 条规则");
+        } else {
+            // 拉不到远端版本但有本地版本 → 本地推进（策略更新出问题时版本也更新，便于识别）
+            if (oldVer != null) {
+                String bumped = bumpVersion(oldVer);
+                com.memshellauditor.VersionInfo.writeRuleVersion(bumped);
+                com.memshellauditor.VersionInfo.writeUpdateStatus("partial", "远端版本不可达，本地版本推进至 " + bumped);
+                System.out.println("[*] 远端版本不可达，本地策略版本推进至 " + bumped + "（更新状态: partial）");
+            }
+        }
         System.out.println("  本地规则目录: " + RuleStore.rulesDir().getAbsolutePath());
+    }
+
+    /** 版本号推进（1.0.0 → 1.0.1 → 1.1.0） */
+    private static String bumpVersion(String ver) {
+        try {
+            String[] parts = ver.trim().split("\\.");
+            if (parts.length == 3) {
+                int patch = Integer.parseInt(parts[2]) + 1;
+                return parts[0] + "." + parts[1] + "." + patch;
+            }
+        } catch (Throwable t) {
+            // ignore
+        }
+        return ver + ".1";
     }
 
     /** 列出规则（提交人/标题/勾选状态） */

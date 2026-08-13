@@ -12,6 +12,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 特征提交包生成器（众包反哺）：
@@ -171,12 +172,12 @@ public class SubmitCollector {
                             java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 }
             }
-            // 更新 index.json（合并）
+            // 合并 index.json（新规则加入现有索引，绝不整体覆盖——防止污染官方索引）
             try {
-                Files.copy(new File(submitDir, "index.json").toPath(),
-                        new File(workDir, "rules/index.json").toPath(),
-                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            } catch (Throwable ignored) {}
+                mergeIndex(new File(submitDir, "index.json"), new File(workDir, "rules/index.json"));
+            } catch (Throwable t) {
+                System.err.println("[!] index 合并失败: " + t.getMessage());
+            }
             exec(workDir, "git", "add", "-A");
             String msg = new String(Files.readAllBytes(new File(submitDir, "COMMIT_MSG").toPath()), StandardCharsets.UTF_8);
             exec(workDir, "git", "commit", "-m", msg);
@@ -267,6 +268,61 @@ public class SubmitCollector {
         } catch (Throwable t) {
             System.err.println("[!] Issue 降级失败: " + t.getMessage());
         }
+    }
+
+    /** 合并 index.json：新规则加入现有索引，保留原有规则（绝不整体覆盖） */
+    private static void mergeIndex(File submitIndex, File targetIndex) throws Exception {
+        // 读取现有索引
+        List<Map<String, Object>> existing = new ArrayList<Map<String, Object>>();
+        if (targetIndex.exists()) {
+            String content = new String(Files.readAllBytes(targetIndex.toPath()), StandardCharsets.UTF_8);
+            Object parsed = new TinyJson().parseObject("{\"x\":" + content + "}");
+            Object x = ((Map<String, Object>) parsed).get("x");
+            if (x instanceof List) {
+                for (Object o : (List<Object>) x) {
+                    if (o instanceof Map) existing.add((Map<String, Object>) o);
+                }
+            }
+        }
+        // 读取提交的新索引
+        List<Map<String, Object>> submitted = new ArrayList<Map<String, Object>>();
+        if (submitIndex.exists()) {
+            String content = new String(Files.readAllBytes(submitIndex.toPath()), StandardCharsets.UTF_8);
+            Object parsed = new TinyJson().parseObject("{\"x\":" + content + "}");
+            Object x = ((Map<String, Object>) parsed).get("x");
+            if (x instanceof List) {
+                for (Object o : (List<Object>) x) {
+                    if (o instanceof Map) submitted.add((Map<String, Object>) o);
+                }
+            }
+        }
+        // 合并：已有 id 保留，新 id 追加
+        java.util.Set<String> seen = new java.util.HashSet<String>();
+        for (Map<String, Object> e : existing) seen.add(String.valueOf(e.get("id")));
+        int added = 0;
+        for (Map<String, Object> e : submitted) {
+            String id = String.valueOf(e.get("id"));
+            if (!seen.contains(id)) {
+                existing.add(e);
+                seen.add(id);
+                added++;
+            }
+        }
+        // 写回
+        StringBuilder sb = new StringBuilder();
+        sb.append("[\n");
+        for (int i = 0; i < existing.size(); i++) {
+            Map<String, Object> e = existing.get(i);
+            sb.append("  {\"id\": \"").append(e.get("id")).append("\", \"name\": \"")
+              .append(e.get("name")).append("\", \"author\": \"")
+              .append(e.get("author")).append("\", \"title\": \"")
+              .append(e.get("title")).append("\", \"version\": \"")
+              .append(e.get("version")).append("\"}");
+            sb.append(i < existing.size() - 1 ? ",\n" : "\n");
+        }
+        sb.append("]\n");
+        Files.write(targetIndex.toPath(), sb.toString().getBytes(StandardCharsets.UTF_8));
+        System.out.println("[*] index 合并完成: 新增 " + added + " 条，总 " + existing.size() + " 条");
     }
 
     /** 执行命令（返回退出码） */

@@ -37,6 +37,7 @@ public class Rule {
     public String title;
     public String version;
     public String description;
+    public String origin = "official"; // official=官方规则库 / custom=用户本地自定义（更新时保留）
     public Match match = new Match();
 
     /** 匹配条件 */
@@ -81,6 +82,8 @@ public class Rule {
         r.title = str(map.get("title"));
         r.version = str(map.get("version"));
         r.description = str(map.get("description"));
+        Object originObj = map.get("origin");
+        r.origin = originObj == null ? "official" : String.valueOf(originObj);
         Object m = map.get("match");
         if (m instanceof Map) {
             Map<String, Object> mm = (Map<String, Object>) m;
@@ -111,6 +114,7 @@ public class Rule {
         sb.append("  \"author\": \"").append(jsonEsc(author)).append("\",\n");
         sb.append("  \"title\": \"").append(jsonEsc(title)).append("\",\n");
         sb.append("  \"version\": \"").append(jsonEsc(version)).append("\",\n");
+        sb.append("  \"origin\": \"").append(jsonEsc(origin)).append("\",\n");
         sb.append("  \"description\": \"").append(jsonEsc(description)).append("\",\n");
         sb.append("  \"match\": {\n");
         sb.append("    \"type\": \"").append(jsonEsc(match.type)).append("\",\n");

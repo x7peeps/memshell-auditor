@@ -34,18 +34,30 @@ public class RuleStore {
         return d;
     }
 
-    public static File indexFile() {
-        return new File(baseDir(), "index.json");
+    /** 用户自定义规则目录（--rules update 时保留，不覆盖不删除） */
+    public static File customRulesDir() {
+        File d = new File(baseDir(), "rules-custom");
+        if (!d.exists()) d.mkdirs();
+        return d;
     }
 
-    public static File selectedFile() {
-        return new File(baseDir(), "selected.json");
+    /** 判断规则是否官方（来自官方索引，更新时可覆盖） */
+    public static boolean isOfficial(String ruleId) {
+        try {
+            File f = indexFile();
+            if (!f.exists()) return true; // 无索引时默认官方
+            String content = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
+            return content.contains("\"" + ruleId + "\"");
+        } catch (Throwable t) {
+            return true;
+        }
     }
 
-    /** 保存规则到本地 */
+    /** 保存规则：官方规则存 rules/，自定义规则存 rules-custom/ */
     public static void saveRule(Rule rule) {
         try {
-            File f = new File(rulesDir(), sanitize(rule.id) + ".json");
+            File targetDir = "custom".equals(rule.origin) ? customRulesDir() : rulesDir();
+            File f = new File(targetDir, sanitize(rule.id) + ".json");
             PrintWriter pw = new PrintWriter(new OutputStreamWriter(
                     new FileOutputStream(f), StandardCharsets.UTF_8));
             pw.print(rule.toJson());
@@ -56,10 +68,27 @@ public class RuleStore {
         }
     }
 
-    /** 列出本地全部规则（从 index 或规则文件读取） */
+    /** 列出本地全部规则（官方 + 自定义） */
     public static List<Rule> listRules() {
         List<Rule> rules = new ArrayList<Rule>();
-        File[] files = rulesDir().listFiles();
+        rules.addAll(listRulesIn(rulesDir()));
+        rules.addAll(listRulesIn(customRulesDir()));
+        return rules;
+    }
+
+    /** 仅列出官方规则 */
+    public static List<Rule> listOfficialRules() {
+        return listRulesIn(rulesDir());
+    }
+
+    /** 仅列出用户自定义规则 */
+    public static List<Rule> listCustomRules() {
+        return listRulesIn(customRulesDir());
+    }
+
+    private static List<Rule> listRulesIn(File dir) {
+        List<Rule> rules = new ArrayList<Rule>();
+        File[] files = dir.listFiles();
         if (files == null) return rules;
         for (File f : files) {
             if (!f.getName().endsWith(".json")) continue;
@@ -71,6 +100,14 @@ public class RuleStore {
             }
         }
         return rules;
+    }
+
+    public static File indexFile() {
+        return new File(baseDir(), "index.json");
+    }
+
+    public static File selectedFile() {
+        return new File(baseDir(), "selected.json");
     }
 
     /** 获取规则勾选状态 */

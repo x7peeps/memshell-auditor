@@ -178,3 +178,29 @@ Manifest: Main-Class: io.core.check.ForensicMain
 版本升至 1.1.0，规则文件统一按 id 命名。
 
 **验证**：`--rules update` 代理拉取 18 条成功；`--rules list` 展示提交人/标题/勾选；banner 显示策略版本 1.1.0。
+
+## 问题 12：工具版本与策略版本分离自动更新 + 自定义规则保护
+
+**背景（老大要求）**：
+1. 产品版本、策略升级分开设计自动更新
+2. 策略更新出问题建议版本也更新一下（便于识别）
+3. 检测用户本地自定义策略要保留，不要误删
+4. 策略库只同步更新内容不整体替换
+
+**方案**：
+- **版本分离**：工具版本（TOOL_VERSION v2.0，--update 检查 GitHub releases）+ 策略版本（~/.memshell-rules/version，--rules update 同步）
+- **版本联动**：更新成功写 version + update-status.log（ok/failed/partial）；远端版本不可达时本地 bump（1.0.0→1.0.1），banner 显示 failed/partial 状态并提示重试
+- **自定义规则保护**：官方规则存 rules/，自定义规则存 rules-custom/（origin 字段区分）；--rules update 增量同步只覆盖官方，自定义永不误删
+- **增量同步**：只更新 index 中的官方规则，删除官方目录中已从 index 移除的规则，自定义目录完全不动
+
+**验证**：
+```
+更新前: rules-custom/CUSTOM-001.json 存在
+--rules update: 官方移除 18（旧目录清空重建）, 自定义规则保留 1 条
+更新后: rules-custom/CUSTOM-001.json 仍在 ✓
+banner: 补充策略: 规则 2 条（官方 1 / 自定义 1）启用 2 条
+```
+
+**事故教训**：--submit --auto-commit 测试时，SubmitCollector 用提交包的 index.json **整体覆盖**官方 index（127 行被删只剩 1 条）→ 官方仓库被污染。
+**修复**：改为 mergeIndex（新规则追加到现有索引，绝不覆盖），恢复官方 index 18 条 + 删除测试规则 MS-118。
+**教训**：自动提交功能必须合并而非替换，防止污染官方索引——这是众包系统的关键安全设计。

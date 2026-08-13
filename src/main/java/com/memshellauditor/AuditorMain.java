@@ -93,6 +93,23 @@ public class AuditorMain {
             return;
         }
 
+        // ===== 工具版本自动更新检查 =====
+        if (cmd.equals("--update") || cmd.equals("-up")) {
+            System.out.print(VersionInfo.banner());
+            System.out.println("[*] 检查工具最新版本...");
+            String latest = VersionInfo.checkLatestToolVersion();
+            if (latest == null) {
+                System.out.println("[!] 检查失败（网络不可达或无 release），当前: " + VersionInfo.TOOL_VERSION);
+            } else if (latest.equals(VersionInfo.TOOL_VERSION)) {
+                System.out.println("[✓] 已是最新版本: " + VersionInfo.TOOL_VERSION);
+            } else {
+                System.out.println("[*] 发现新版本: " + latest + "（当前 " + VersionInfo.TOOL_VERSION + "）");
+                System.out.println("    下载: https://github.com/x7peeps/memshell-auditor/releases/latest");
+            }
+            System.out.println("[*] 策略更新: --rules update（工具版本与策略版本独立自动更新）");
+            return;
+        }
+
         // 其他命令前展示策略版本横幅（主程序运行时都要看到策略情况与署名）
         if (!cmd.equals("--gen-agent") && !cmd.equals("-g")) {
             System.out.print(VersionInfo.banner());
@@ -128,7 +145,7 @@ public class AuditorMain {
         System.out.println("      分析取证报告；未配置 AI 时结尾引导配置，配置后重跑自动带 AI 增强");
         System.out.println();
         System.out.println("  java -jar memshell-auditor.jar --rules <update|list|select|download|status> [args]");
-        System.out.println("      特征库管理（GitHub 在线更新，类 Metasploit）");
+        System.out.println("      特征库管理（GitHub 在线更新，类 Metasploit；增量同步保留自定义规则）");
         System.out.println("        --rules update            拉取/更新特征库");
         System.out.println("        --rules list              列出规则（提交人/标题/勾选状态）");
         System.out.println("        --rules select --all      全选规则");
