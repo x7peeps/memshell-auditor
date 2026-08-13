@@ -49,13 +49,8 @@ public class AiAnalyzer {
         String context = buildContext(report, dumpDir);
         if (context == null || context.isEmpty()) return null;
 
-        // 3. 调用 LLM
-        String result = client.chat(SYSTEM_PROMPT, context);
-        if (result == null) {
-            System.out.println("[memshell-auditor] AI 分析调用失败，降级本地分析");
-            return localAnalysis(report, dumpDir);
-        }
-        return result;
+        // 3. 调用 LLM（失败返回 null，由调用方决定降级）
+        return client.chat(SYSTEM_PROMPT, context);
     }
 
     private static final String SYSTEM_PROMPT =

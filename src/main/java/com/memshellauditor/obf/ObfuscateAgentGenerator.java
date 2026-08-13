@@ -82,10 +82,10 @@ public final class ObfuscateAgentGenerator {
                     attrs.putValue(k, v);
                 }
             }
-            // 兜底确保关键属性存在
+            // 兜底确保关键属性存在（取证程序 Main-Class 指向现场端 ForensicMain）
             attrs.putValue("Premain-Class", newPkg.replace('/', '.') + ".AgentMain");
             attrs.putValue("Agent-Class", newPkg.replace('/', '.') + ".AgentMain");
-            attrs.putValue("Main-Class", newPkg.replace('/', '.') + ".AuditorMain");
+            attrs.putValue("Main-Class", newPkg.replace('/', '.') + ".ForensicMain");
             attrs.putValue("Can-Redefine-Classes", "true");
             attrs.putValue("Can-Retransform-Classes", "true");
             attrs.putValue("Can-Set-Native-Method-Prefix", "true");
@@ -100,6 +100,10 @@ public final class ObfuscateAgentGenerator {
                     String name = e.getName();
                     // 取证端不含 AI 模块（AI 能力仅在主程序）
                     if (name.startsWith("com/memshellauditor/ai/")) continue;
+                    // 取证端不含分析端类（gen-agent/analyze/obf 混淆器只在主程序）
+                    if (name.startsWith("com/memshellauditor/obf/")) continue;
+                    if (name.startsWith("com/memshellauditor/AuditorMain")) continue;
+                    if (name.startsWith("com/memshellauditor/ReportAnalyzer")) continue;
                     // JarOutputStream(Manifest) 已自动写入 MANIFEST.MF，跳过原条目避免 duplicate
                     if (name.equals("META-INF/MANIFEST.MF")) continue;
                     if (e.isDirectory()) {
@@ -125,6 +129,8 @@ public final class ObfuscateAgentGenerator {
                     jos.write(data);
                     jos.closeEntry();
                 }
+                // 6.1 打包已勾选的特征规则（现场离线可用）
+                packRules(jos, rules);
             } finally {
                 jos.close();
                 jf.close();
@@ -134,6 +140,74 @@ public final class ObfuscateAgentGenerator {
             t.printStackTrace(System.err);
             return null;
         }
+    }
+
+    /** 打包已勾选的特征规则到 jar 的 rules/ 目录（现场离线检测用） */
+    private static void packRules(JarOutputStream jos, Map<String, String> rules) throws Exception {
+        try {
+            java.io.File rulesDir = com.memshellauditor.rules.RuleStore.rulesDir();
+            java.io.File[] files = rulesDir.listFiles();
+            if (files == null || files.length == 0) {
+                System.out.println("[*] 无本地规则，取证程序使用内置默认规则");
+                return;
+            }
+            int packed = 0;
+            StringBuilder index = new StringBuilder();
+            index.append("[\n");
+            java.util.List<String> packedIds = new java.util.ArrayList<String>();
+            for (java.io.File f : files) {
+                if (!f.getName().endsWith(".json")) continue;
+                String id = f.getName().replace(".json", "");
+                // 只打包已勾选规则
+                if (!com.memshellauditor.rules.RuleStore.isSelected(id)) continue;
+                byte[] data = java.nio.file.Files.readAllBytes(f.toPath());
+                // 用规则文件的真实 id 重命名（兼容 id 与文件名不一致：MS-001 vs MS-001-filter-no-class）
+                String entryName = f.getName();
+                try {
+                    com.memshellauditor.rules.Rule r = com.memshellauditor.rules.Rule.fromMap(
+                            new com.memshellauditor.rules.TinyJson().parseObject(new String(data, "UTF-8")));
+                    if (r.id != null && !r.id.isEmpty()) {
+                        entryName = com.memshellauditor.rules.RuleStore.sanitize(r.id) + ".json";
+                    }
+                } catch (Throwable t) {
+                    // 保持原文件名
+                }
+                jos.putNextEntry(new JarEntry("rules/" + entryName));
+                jos.write(data);
+                jos.closeEntry();
+                // 解析规则取 author/title 供 index
+                try {
+                    com.memshellauditor.rules.Rule r = com.memshellauditor.rules.Rule.fromMap(
+                            new com.memshellauditor.rules.TinyJson().parseObject(new String(data, "UTF-8")));
+                    if (index.length() > 2) index.append(",\n");
+                    index.append("  {\"id\": \"").append(r.id).append("\", \"name\": \"")
+                         .append(jsonEscape(r.name)).append("\", \"author\": \"")
+                         .append(jsonEscape(r.author)).append("\", \"title\": \"")
+                         .append(jsonEscape(r.title)).append("\", \"version\": \"")
+                         .append(jsonEscape(r.version)).append("\"}");
+                } catch (Throwable t) {
+                    if (index.length() > 2) index.append(",\n");
+                    index.append("  {\"id\": \"").append(id).append("\", \"name\": \"")
+                         .append(id).append("\", \"author\": \"x7peeps\", \"title\": \"")
+                         .append(id).append("\", \"version\": \"1.0\"}");
+                }
+                packedIds.add(id);
+                packed++;
+            }
+            index.append("\n]\n");
+            // 打包 index.json（RuleEngine 加载列表依赖它）
+            jos.putNextEntry(new JarEntry("rules/index.json"));
+            jos.write(index.toString().getBytes("UTF-8"));
+            jos.closeEntry();
+            System.out.println("[*] 已打包 " + packed + " 条检测规则到取证程序（现场离线可用）");
+        } catch (Throwable t) {
+            System.err.println("[!] 规则打包失败（取证程序使用内置默认规则）: " + t.getMessage());
+        }
+    }
+
+    private static String jsonEscape(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
     }
 
     /** 重写 class 条目路径（包名替换） */

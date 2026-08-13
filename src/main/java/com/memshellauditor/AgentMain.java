@@ -75,6 +75,35 @@ public class AgentMain {
             report.add(com.memshellauditor.report.Finding.low("N/A", "Heuristic", null, null, "启发式审计异常: " + t, null));
         }
 
+        // ===== 规则引擎匹配（取证端内置规则，离线可用） =====
+        try {
+            java.util.List<com.memshellauditor.rules.Rule> rules = com.memshellauditor.rules.RuleEngine.loadClasspathRules();
+            if (rules.isEmpty()) {
+                rules = com.memshellauditor.rules.RuleEngine.loadUserRules();
+            }
+            int ruleHits = 0;
+            if (!rules.isEmpty()) {
+                for (com.memshellauditor.report.Finding f : report.getFindings()) {
+                    if (f.level != com.memshellauditor.report.Finding.Level.HIGH) continue;
+                    java.util.List<String> hits = com.memshellauditor.rules.RuleEngine.matchRules(
+                            rules, f.category, f.signal, f.className);
+                    if (!hits.isEmpty()) {
+                        ruleHits++;
+                        if (f.evidence == null || f.evidence.isEmpty()) {
+                            f.evidence = "命中规则: " + String.join(", ", hits);
+                        } else {
+                            f.evidence = f.evidence + " | 命中规则: " + String.join(", ", hits);
+                        }
+                    }
+                }
+                report.add(com.memshellauditor.report.Finding.info("RuleEngine",
+                        "规则引擎加载 " + rules.size() + " 条特征规则，高危命中 " + ruleHits + " 项"));
+            }
+        } catch (Throwable t) {
+            report.add(com.memshellauditor.report.Finding.low("N/A", "RuleEngine", null, null,
+                    "规则引擎异常: " + t, null));
+        }
+
         // ===== 取证增强（dump + 反编译 + 回连） =====
         File dumpFile = null;
         if (dumpDir != null) {
@@ -118,6 +147,10 @@ public class AgentMain {
                     Report.class, File.class, boolean.class);
             aiAnalysis = (String) analyze.invoke(aiAnalyzerCls.getConstructor().newInstance(),
                     report, dumpFile, false);
+            if (aiAnalysis == null || aiAnalysis.isEmpty()) {
+                // AI 调用失败/未配置 → 取证端本地规则分析
+                aiAnalysis = localRuleAnalysis(report, dumpFile);
+            }
         } catch (ClassNotFoundException e) {
             // 取证端（混淆程序）：无 AI 模块，用本地规则分析
             aiAnalysis = localRuleAnalysis(report, dumpFile);
