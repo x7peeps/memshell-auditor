@@ -144,3 +144,37 @@ Manifest: Main-Class: io.core.check.ForensicMain
   java -jar <取证程序>.jar <pid> [--report] [--dump] [--heap]
 分析端类排除检查: 0（AuditorMain/ReportAnalyzer/obf/ai 全无）
 ```
+
+## 问题 10：未检出特征 → 用户同意 → 自动提交 → 失败降级 Issue
+
+**背景（老大要求）**：主程序每次跑完如果存在未检出的就提示用户是否提交，用户同意自动推送；提交不成功就打开项目创建 Issue，让用户粘贴本地内容。
+
+**方案**：
+1. `--analyze` 结束检测未命中规则的高危项 → 提示提交命令
+2. `--submit --author --auto-commit` → 生成提交包 → git commit + push
+3. push 成功 → 直接推送规则仓库
+4. push 失败 → 生成 issue-body.md（五大段：场景/详情/规则/复现/说明）+ 自动打开 GitHub 新建 Issue 页面
+
+**验证（无权限模拟）**：
+```
+[*] push 失败（权限/网络问题）
+[*] Issue 内容已生成（含场景描述/检出详情/规则/复现步骤）: .../issue-body.md
+[*] 打开新建 Issue 页面...
+    URL: https://github.com/x7peeps/memshell-rules/issues/new?title=...
+[*] 请将 issue-body.md 内容粘贴到 Issue 正文后提交
+```
+
+**经验**：作为仓库 owner push 会直接成功；普通用户 push 失败自动走 Issue 兜底——这是设计意图（众包贡献保护官方仓库 main）。
+
+## 问题 11：规则库扩充至 18 条
+
+**背景（老大要求）**：需要扩充规则。
+
+**方案**：新增 12 条（MS-007~018），覆盖：
+- 容器组件型：Servlet 动态注册/WebSocket Endpoint/Upgrade 处理器
+- 类名特征型：无包名/短随机类名/大小写混淆
+- 行为模式型：Base64+命令执行/AES 解密/MethodHandles defineClass/硬编码 IP 回连
+- Agent 型：可疑 Transformer/反射获取 Instrumentation
+版本升至 1.1.0，规则文件统一按 id 命名。
+
+**验证**：`--rules update` 代理拉取 18 条成功；`--rules list` 展示提交人/标题/勾选；banner 显示策略版本 1.1.0。

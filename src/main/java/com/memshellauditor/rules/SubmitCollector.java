@@ -132,7 +132,11 @@ public class SubmitCollector {
 
             // 提交
             if (autoCommit) {
-                gitCommit(submitDir, candidates);
+                boolean pushed = gitCommit(submitDir, candidates, authorName);
+                if (!pushed) {
+                    // push 失败 → 降级：打开 GitHub Issue 供用户粘贴提交
+                    openIssueFallback(submitDir, authorName, stamp);
+                }
             } else {
                 System.out.println();
                 System.out.println("[?] 是否提交到本地 git 仓库？");
@@ -145,8 +149,11 @@ public class SubmitCollector {
         }
     }
 
-    /** git 提交（需要本地已有规则仓库 clone 或自动 clone） */
-    private static void gitCommit(File submitDir, List<Rule> rules) {
+    /**
+     * git 提交并推送（需要本地已有规则仓库 clone 或自动 clone）。
+     * @return 是否推送成功
+     */
+    private static boolean gitCommit(File submitDir, List<Rule> rules, String authorName) {
         try {
             File workDir = new File(System.getProperty("user.home"), ".memshell-rules/repo");
             if (!new File(workDir, ".git").exists()) {
@@ -173,13 +180,97 @@ public class SubmitCollector {
             exec(workDir, "git", "add", "-A");
             String msg = new String(Files.readAllBytes(new File(submitDir, "COMMIT_MSG").toPath()), StandardCharsets.UTF_8);
             exec(workDir, "git", "commit", "-m", msg);
-            System.out.println("[*] 已提交（push 需用户确认: cd " + workDir + " && git push）");
+            System.out.println("[*] 本地提交成功，尝试 push 到规则仓库...");
+            int pushCode = execReturn(workDir, "git", "push", "origin", "main");
+            if (pushCode == 0) {
+                System.out.println("[*] ✅ 已推送特征到规则仓库（贡献者: " + authorName + "）");
+                return true;
+            } else {
+                System.out.println("[!] push 失败（可能是权限/网络问题）");
+                System.out.println("    可手动执行: cd " + workDir + " && git push");
+                return false;
+            }
         } catch (Throwable t) {
             System.err.println("[!] git 提交失败: " + t.getMessage());
+            return false;
         }
     }
 
-    private static void exec(File dir, String... cmd) throws Exception {
+    /**
+     * push 失败降级：生成 Issue 内容并打开 GitHub 新建 Issue 页面，
+     * 用户粘贴本地提交包内容到 Issue（众包特征提交的兜底通道）。
+     */
+    private static void openIssueFallback(File submitDir, String authorName, String stamp) {
+        try {
+            // 1. 生成 issue-body.md（粘贴到 GitHub Issue 的内容，含完整描述）
+            File bodyFile = new File(submitDir, "issue-body.md");
+            StringBuilder sb = new StringBuilder();
+            sb.append("## 特征提交（memshell-auditor 自动生成）\n\n");
+            sb.append("> 贡献者: ").append(authorName).append("  |  时间: ").append(stamp).append("\n\n");
+            sb.append("### 一、检测场景描述\n\n");
+            sb.append("- **检出方式**: 取证程序 attach 目标 JVM 检测，报告 JSON 分析\n");
+            sb.append("- **检测类别**: 容器组件/行为模式/类名特征\n");
+            sb.append("- **是否命中现有规则**: 否（未命中，属于新特征候选）\n");
+            sb.append("- **疑似工具**: 依据行为特征判断（Behinder/Godzilla/AntSword/Suo5/未知）\n\n");
+            sb.append("### 二、检出项详情\n\n");
+            sb.append("| 项目 | 内容 |\n");
+            sb.append("|---|---|\n");
+            sb.append("| 类别 | ").append("Filter/Servlet/Listener 等").append(" |\n");
+            sb.append("| 信号 | A1-A5/B1-B5 |\n");
+            sb.append("| 类名 | 检出类名（已脱敏） |\n");
+            sb.append("| 判定 | 磁盘无 class / 行为模式命中 |\n");
+            sb.append("| Dump | 已提取字节码供分析 |\n\n");
+            sb.append("### 三、新检测特征规则\n\n");
+            File rulesDir = new File(submitDir, "rules");
+            File[] files = rulesDir.listFiles();
+            if (files != null) {
+                for (File f : files) {
+                    if (!f.getName().endsWith(".json")) continue;
+                    sb.append("#### ").append(f.getName()).append("\n\n```json\n");
+                    sb.append(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
+                    sb.append("\n```\n\n");
+                }
+            }
+            sb.append("### 四、复现与验证\n\n");
+            sb.append("1. `java -jar memshell-auditor.jar --rules update` 拉取最新规则\n");
+            sb.append("2. `java -jar memshell-auditor.jar --rules list` 确认规则加载\n");
+            sb.append("3. 重新取证验证新规则命中：`--scan --dump` 后 `--analyze <report>`\n");
+            sb.append("\n### 五、说明\n\n");
+            sb.append("- 由取证报告检出项自动生成（未命中现有规则的新特征）\n");
+            sb.append("- 请维护者审核后合并入规则库，或指导提交者修正\n");
+            sb.append("- 规则质量要求见 CONTRIBUTING.md（可验证/低误报/行为优先）\n");
+            Files.write(bodyFile.toPath(), sb.toString().getBytes(StandardCharsets.UTF_8));
+            System.out.println("[*] Issue 内容已生成（含场景描述/检出详情/规则/复现步骤）: " + bodyFile.getAbsolutePath());
+
+            // 2. 打开 GitHub 新建 Issue 页面（预填标题）
+            String title = "feat(rules): 新增内存马检测特征（" + authorName + "）";
+            String url = "https://github.com/x7peeps/memshell-rules/issues/new?title="
+                    + java.net.URLEncoder.encode(title, "UTF-8");
+            System.out.println("[*] 打开新建 Issue 页面...");
+            System.out.println("    URL: " + url);
+            System.out.println("[*] 请将 " + bodyFile.getAbsolutePath() + " 的内容粘贴到 Issue 正文后提交");
+            // 跨平台打开浏览器
+            String os = System.getProperty("os.name", "").toLowerCase();
+            ProcessBuilder pb;
+            if (os.contains("mac")) {
+                pb = new ProcessBuilder("open", url);
+            } else if (os.contains("win")) {
+                pb = new ProcessBuilder("rundll32", "url.dll,FileProtocolHandler", url);
+            } else {
+                pb = new ProcessBuilder("xdg-open", url);
+            }
+            try {
+                pb.start();
+            } catch (Throwable t2) {
+                System.out.println("[!] 自动打开浏览器失败，请手动访问上面 URL");
+            }
+        } catch (Throwable t) {
+            System.err.println("[!] Issue 降级失败: " + t.getMessage());
+        }
+    }
+
+    /** 执行命令（返回退出码） */
+    private static int execReturn(File dir, String... cmd) throws Exception {
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.directory(dir);
         pb.redirectErrorStream(true);
@@ -187,7 +278,11 @@ public class SubmitCollector {
         BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8));
         String line;
         while ((line = br.readLine()) != null) System.out.println("  " + line);
-        p.waitFor();
+        return p.waitFor();
+    }
+
+    private static void exec(File dir, String... cmd) throws Exception {
+        execReturn(dir, cmd);
     }
 
     private static String shortClass(String className) {

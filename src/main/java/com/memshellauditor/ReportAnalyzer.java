@@ -67,9 +67,43 @@ public class ReportAnalyzer {
                 }
                 showAiGuide(reportFile.getName());
             }
+
+            // ===== 未命中规则的高危检出 → 提示提交新特征 =====
+            checkUnmatchedFindings(report, reportFile);
         } catch (Throwable t) {
             System.err.println("[!] 报告解析失败: " + t);
             System.exit(2);
+        }
+    }
+
+    /** 检测未命中规则的高危检出项，提示用户提交新特征 */
+    private static void checkUnmatchedFindings(com.memshellauditor.report.Report report, File reportFile) {
+        try {
+            // 加载本地/内置规则
+            java.util.List<com.memshellauditor.rules.Rule> rules = com.memshellauditor.rules.RuleEngine.loadClasspathRules();
+            if (rules.isEmpty()) {
+                rules = com.memshellauditor.rules.RuleEngine.loadUserRules();
+            }
+            if (rules.isEmpty()) return; // 无规则无法判断"未命中"
+            int unmatched = 0;
+            for (com.memshellauditor.report.Finding f : report.getFindings()) {
+                if (f.level != com.memshellauditor.report.Finding.Level.HIGH) continue;
+                java.util.List<String> hits = com.memshellauditor.rules.RuleEngine.matchRules(
+                        rules, f.category, f.signal, f.className);
+                if (hits.isEmpty()) unmatched++;
+            }
+            if (unmatched > 0) {
+                System.out.println();
+                System.out.println("==================================================================");
+                System.out.println("⚠️ 发现 " + unmatched + " 条未命中现有特征库的高危检出项（新特征候选）");
+                System.out.println("   欢迎贡献到社区特征库（作者署名将保留在规则中）:");
+                System.out.println("   java -jar memshell-auditor.jar --submit --report " + reportFile.getName()
+                        + " --author " + System.getProperty("user.name", "anonymous") + " --auto-commit");
+                System.out.println("   提交成功自动推送；失败会打开 Issue 供粘贴内容");
+                System.out.println("==================================================================");
+            }
+        } catch (Throwable t) {
+            // 提示失败不影响主流程
         }
     }
 
