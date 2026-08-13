@@ -1,0 +1,26 @@
+{
+  "tool": "jre-check",
+  "version": "1.0.0",
+  "pid": 94481,
+  "target": "/private/tmp/memshell-test / MemshellInjectTarget2 /tmp/jmg-payloads/behinder-filter.b64 18106",
+  "javaVersion": "26.0.1",
+  "summary": {"HIGH": 1, "MEDIUM": 2, "LOW": 0, "INFO": 12, "total": 15},
+  "findings": [
+    {"level":"INFO","signal":"N/A","category":"Container","className":"","classLoader":"","reason":"发现 1 个容器上下文实例，开始组件审计","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"HIGH","signal":"A1","category":"Filter","className":"org.springframework.ServletRequestAujFilter","classLoader":"","reason":"FilterDef 注册的类在磁盘无对应 class 文件（动态加载），高度疑似内存马","evidence":"核对 org.springframework.ServletRequestAujFilter 是否存在对应 class/jar | 命中规则: MS-001:FilterDef 动态注册且磁盘无对应 class → 内存马强信号, MS-003:Filter/Listener 继承 ClassLoader（动态加载后门载荷的特征）","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"Listener","className":"","classLoader":"","reason":"Listener -> org.apache.catalina.startup.Tomcat$DefaultWebXmlListener 正常","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"Listener","className":"","classLoader":"","reason":"Listener -> org.apache.catalina.startup.ContextConfig 正常","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"Listener","className":"","classLoader":"","reason":"Listener -> org.apache.catalina.core.StandardHost$MemoryLeakTrackingListener 正常","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"Listener","className":"","classLoader":"","reason":"Listener -> org.apache.catalina.mapper.MapperListener 正常","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"Valve","className":"","classLoader":"","reason":"Valve -> org.apache.catalina.authenticator.NonLoginAuthenticator 正常","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"Valve","className":"","classLoader":"","reason":"Valve -> org.apache.catalina.core.StandardContextValve 正常","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"Agent","className":"","classLoader":"","reason":"启动参数未发现 -javaagent/-agentlib，sun.java.command=MemshellInjectTarget2 /tmp/jmg-payloads/behinder-filter.b64 18106","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"MEDIUM","signal":"B2","category":"Agent","className":"MemshellInjectTarget2","classLoader":"jdk.internal.loader.ClassLoaders$AppClassLoader@5bc2b487","reason":"已加载类名含可疑关键字（javacore/classcore/inject 等）","evidence":"jad MemshellInjectTarget2 ; 核对来源 jar","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"ClassLoader","className":"","classLoader":"","reason":"未发现非系统 ClassLoader，血缘结构正常","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"MEDIUM","signal":"B1","category":"ClassFeature","className":"MemshellInjectTarget2","classLoader":"jdk.internal.loader.ClassLoaders$AppClassLoader@5bc2b487","reason":"类名包含恶意关键字（javacore/classcore/behinder/godzilla 等）","evidence":"jad MemshellInjectTarget2 ; 核对来源（arthas: classloader -c <hash> -r）","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"Transformer","className":"","classLoader":"","reason":"已加载类中未发现可疑 ClassFileTransformer 实现","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"Heuristic","className":"","classLoader":"","reason":"未发现未知内存马行为特征（启发式扫描 2 个可疑类）","evidence":"","dumpPath":"","callbackIps":""},
+    {"level":"INFO","signal":"N/A","category":"RuleEngine","className":"","classLoader":"","reason":"规则引擎加载 3 条特征规则，高危命中 1 项","evidence":"","dumpPath":"","callbackIps":""}
+  ]
+  ,"aiAnalysis": "=== 取证端规则匹配分析 ===\n规则统计: HIGH=1 MEDIUM=2\n\n⚠️ 高危: [Filter] org.springframework.ServletRequestAujFilter\n   判定: FilterDef 注册的类在磁盘无对应 class 文件（动态加载），高度疑似内存马\n   信号: A1 → 强信号，按内存马处置\n   处置: 隔离主机 → 断网 → 保全证据 → 排查注入入口 → 修复重启\n⚠️ 中危: [Agent] MemshellInjectTarget2\n   判定: 已加载类名含可疑关键字（javacore/classcore/inject 等）\n   建议: 人工复核确认，配合基线比对\n⚠️ 中危: [ClassFeature] MemshellInjectTarget2\n   判定: 类名包含恶意关键字（javacore/classcore/behinder/godzilla 等）\n   建议: 人工复核确认，配合基线比对\n\n提示: 本报告可带回分析端执行 java -jar jre-check.jar --analyze <report.json> --ai-config ai.json 进行 AI 增强分析。\n"
+}

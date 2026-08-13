@@ -61,28 +61,45 @@ public class ScanRunner {
             return;
         }
 
-        // 汇总统计
-        List<String[]> summary = new ArrayList<String[]>();
-        for (JvmScanner.JvmInfo j : targets) {
-            String pid = j.id;
-            String reportPath = opts.get("--report");
-            String dumpDir = opts.get("--dump");
-            String heapDir = opts.get("--heap");
-            String aiConfig = opts.get("--ai-config");
-            System.out.println();
-            System.out.println("========== 审计 PID " + pid + " ==========");
-            System.out.println("目标: " + truncate(j.displayName, 100));
-            try {
-                String out = "memshell-auditor-scan-" + pid + ".json";
-                if (reportPath != null && !reportPath.isEmpty()) {
-                    File rf = new File(reportPath);
-                    if (rf.isDirectory()) out = new File(rf, out).getAbsolutePath();
+        // 汇总统计（并发审计）
+        List<String[]> summary = java.util.Collections.synchronizedList(new ArrayList<String[]>());
+        int parallel = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+        String parOpt = opts.get("--parallel");
+        if (parOpt != null) {
+            try { parallel = Integer.parseInt(parOpt); } catch (Throwable t) { /* keep */ }
+        }
+        if (parallel > targets.size()) parallel = targets.size();
+        System.out.println("[*] 并发审计 " + targets.size() + " 个进程（--parallel " + parallel + "）");
+        java.util.concurrent.ExecutorService pool =
+                java.util.concurrent.Executors.newFixedThreadPool(parallel);
+        for (final JvmScanner.JvmInfo j : targets) {
+            pool.submit(new Runnable() {
+                @Override
+                public void run() {
+                    String pid = j.id;
+                    try {
+                        String out = "memshell-auditor-scan-" + pid + ".json";
+                        String reportPath = opts.get("--report");
+                        if (reportPath != null && !reportPath.isEmpty()) {
+                            File rf = new File(reportPath);
+                            if (rf.isDirectory()) out = new File(rf, out).getAbsolutePath();
+                        }
+                        int high = attachAndAudit(pid, agentJar, out,
+                                opts.get("--dump"), opts.get("--heap"), opts.get("--ai-config"));
+                        summary.add(new String[]{pid, j.displayName, String.valueOf(high)});
+                        System.out.println("[✓] PID " + pid + " 完成 (HIGH=" + high + ")");
+                    } catch (Throwable t) {
+                        System.out.println("[!] 审计 PID " + pid + " 失败: " + t.getMessage());
+                        summary.add(new String[]{pid, j.displayName, "0"});
+                    }
                 }
-                int high = attachAndAudit(pid, agentJar, out, dumpDir, heapDir, aiConfig);
-                summary.add(new String[]{pid, j.displayName, String.valueOf(high)});
-            } catch (Throwable t) {
-                System.out.println("[!] 审计 PID " + pid + " 失败: " + t.getMessage());
-            }
+            });
+        }
+        pool.shutdown();
+        try {
+            pool.awaitTermination(10, java.util.concurrent.TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
 
         // 汇总排行
