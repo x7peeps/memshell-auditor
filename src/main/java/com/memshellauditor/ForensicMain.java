@@ -92,6 +92,11 @@ public class ForensicMain {
             if (heapDir != null && !heapDir.isEmpty()) {
                 agentArgs.append(",heap=").append(new File(heapDir).getAbsolutePath());
             }
+            // 实时监控模式：--live [seconds] 保持监听捕获后续新注入类
+            String live = opts.get("--live");
+            if (live != null) {
+                agentArgs.append(",live=").append(live.isEmpty() ? "60" : live);
+            }
             Method loadAgent = vmClass.getMethod("loadAgent", String.class, String.class);
             loadAgent.invoke(vm, agentJar.getAbsolutePath(), agentArgs.toString());
             System.out.println("[*] 取证完成，报告: " + new File(out).getAbsolutePath());

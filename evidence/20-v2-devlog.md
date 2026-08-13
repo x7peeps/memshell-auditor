@@ -227,3 +227,25 @@ banner: 补充策略: 规则 2 条（官方 1 / 自定义 1）启用 2 条
 - 代码注释/示例、网站文章、公众号 HTML 全部同步
 
 **验证**：本地 --rules update 拉取 JMSH-001~018 成功；公众号草稿回读 has_JMSH=True has_MS_old=False；网站已推送。
+
+## 问题 15：局限研究2 —— 实时监控 --live（LiveTransformer）
+
+**目标**：解决局限4（attach 只能看到已加载类）+ 部分缓解局限1（retransform 失败的载荷）。
+
+**方案**：attach 时 addTransformer(canRetransform=true) 安装监控 transformer，后续任何新 defineClass 的类都会经过 transform() 回调——在类定义时捕获字节码，实时检查（容器特征 + 行为评分）并 dump。
+
+**实现**：LiveTransformer.java + AgentMain 集成（--live <seconds>）+ ForensicMain 参数传递。
+
+**验证**（LiveTestTarget2 延迟 15 秒注入真实冰蝎载荷）：
+```
+[HIGH] Live: 实时监控捕获可疑动态加载类: org.springframework.ServletRequestAujFilter
+       （字节码含命令执行/解密/回连特征）
+✓ dump: org_springframework_ServletRequestAujFilter.class (4160B)
+```
+在注入瞬间捕获完整字节码，与 retransform dump 一致——**无需事后 retransform**。
+
+**踩坑**：
+1. 靶场进程用 `| head -5` 管道启动会被 SIGPIPE 杀掉（attach 时进程已死）
+2. attach 必须用真实 Java PID（jps 确认），shell 管道 PID 会差几号
+3. JMG jakarta 载荷注入需要 jakarta.servlet 在 classpath（NoClassDefFoundError）
+4. live 模式的 stdout 被 attach 机制吞掉，验证要看报告/dump 目录

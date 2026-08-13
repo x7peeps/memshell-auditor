@@ -15,6 +15,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.lang.instrument.Instrumentation;
+import java.security.ProtectionDomain;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -104,7 +105,59 @@ public class AgentMain {
                     "规则引擎异常: " + t, null));
         }
 
-        // ===== 取证增强（dump + 反编译 + 回连） =====
+        // ===== 实时监控模式（--live）：attach 后保持监听，捕获后续新注入类 =====
+        String liveSeconds = opts.get("live");
+        if (liveSeconds != null) {
+            try {
+                final Report liveReport = report;
+                final java.io.File liveDumpDir = dumpDir != null ? new File(dumpDir) : null;
+                com.memshellauditor.detect.LiveTransformer.enable(inst, new com.memshellauditor.detect.LiveTransformer.LiveListener() {
+                    @Override
+                    public void onNewClass(ClassLoader loader, String className,
+                                           byte[] classfileBuffer, ProtectionDomain protectionDomain) {
+                        try {
+                            String name = className.replace('/', '.');
+                            // 跳过自身/JDK/框架类
+                            if (name.startsWith("java.") || name.startsWith("javax.")
+                                    || name.startsWith("jdk.") || name.startsWith("sun.")
+                                    || com.memshellauditor.util.ReflectUtil.isSelfClass(name)) return;
+                            // 实时规则检查：容器组件 + 可疑行为
+                            boolean suspicious = checkLiveClass(name, classfileBuffer, loader);
+                            if (suspicious) {
+                                String reason = "实时监控捕获可疑动态加载类: " + name
+                                        + "（字节码含命令执行/解密/回连特征）";
+                                liveReport.add(com.memshellauditor.report.Finding.high("A1", "Live", name, null, reason,
+                                        "dump 目录: " + liveDumpDir));
+                                // 立即 dump
+                                if (liveDumpDir != null) {
+                                    try {
+                                        java.io.File f = new java.io.File(liveDumpDir,
+                                                name.replaceAll("[^A-Za-z0-9_.]", "_") + ".class");
+                                        java.io.FileOutputStream fos = new java.io.FileOutputStream(f);
+                                        fos.write(classfileBuffer);
+                                        fos.close();
+                                        System.out.println("[live] dump: " + f.getAbsolutePath());
+                                    } catch (Throwable ignored) {}
+                                }
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+                });
+                System.out.println("[live] 实时监控已启用，持续捕获新加载类...");
+                // 保持进程存活指定秒数（默认 60）
+                long secs = 60;
+                try {
+                    secs = Long.parseLong(liveSeconds);
+                } catch (Throwable ignored) {}
+                try {
+                    Thread.sleep(1000 * secs);
+                } catch (InterruptedException ignored) {}
+                System.out.println("[live] 实时监控结束（共 " + secs + " 秒）");
+            } catch (Throwable t) {
+                System.err.println("[live] 实时监控启用失败: " + t);
+            }
+        }
+
         File dumpFile = null;
         if (dumpDir != null) {
             dumpFile = new File(dumpDir);
@@ -187,6 +240,26 @@ public class AgentMain {
         }
     }
 
+
+    /** 实时类检查：字节码字符串特征（命令执行/解密/回连/容器） */
+    private static boolean checkLiveClass(String name, byte[] bytes, ClassLoader loader) {
+        if (bytes == null || bytes.length < 100) return false;
+        // 字节码 → 可读字符串（常量池 utf8 近似提取）
+        String s = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+        // 恶意行为特征
+        int score = 0;
+        if (s.contains("Runtime") && s.contains("exec")) score++;
+        if (s.contains("ProcessBuilder")) score++;
+        if (s.contains("defineClass") || s.contains("ClassLoader")) score++;
+        if (s.contains("Base64") || s.contains("Cipher") || s.contains("AES")) score++;
+        if (s.contains("Socket") || s.contains("URLConnection")) score++;
+        if (s.contains("getParameter") || s.contains("getHeader")) score++;
+        // 容器组件特征
+        boolean container = s.contains("Filter") || s.contains("Servlet")
+                || s.contains("Listener") || s.contains("Valve");
+        return container && score >= 2;
+    }
+        File dumpFile = null;
     private static Map<String, String> parseArgs(String args) {
         Map<String, String> map = new HashMap<String, String>();
         if (args == null || args.isEmpty()) return map;
