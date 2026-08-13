@@ -32,6 +32,18 @@ public class AuditorMain {
             return;
         }
 
+        // --scan 全自动扫描所有 Java 进程（取证人员无需知道 PID）
+        if (args[0].equals("--scan") || args[0].equals("-s")) {
+            Map<String, String> opts = parseOptions(args, 1);
+            File agentJar = locateAgentJar();
+            if (agentJar == null) {
+                System.err.println("[!] 无法定位 memshell-auditor agent jar");
+                System.exit(2);
+            }
+            ScanRunner.scan(agentJar, opts);
+            return;
+        }
+
         // --gen-agent <输出目录> [--name-prefix <前缀>] 生成混淆取证程序
         if (args[0].equals("--gen-agent") || args[0].equals("-g")) {
             Map<String, String> opts = parseOptions(args, 1);
@@ -114,6 +126,7 @@ public class AuditorMain {
         System.out.println();
         System.out.println("用法:");
         System.out.println("  java -jar memshell-auditor.jar --list");
+        System.out.println("  java -jar memshell-auditor.jar --scan [选项]   ← 全自动扫描所有 Java 进程");
         System.out.println("  java -jar memshell-auditor.jar <pid> [选项]");
         System.out.println("  java -jar memshell-auditor.jar --gen-agent <输出目录> [--name-prefix <前缀>]");
         System.out.println();
@@ -125,6 +138,7 @@ public class AuditorMain {
         System.out.println("                     OpenAI 兼容: DeepSeek/通义/Ollama/vLLM 等均可用");
         System.out.println("  --gen-agent        生成混淆取证程序（随机名+特征混淆，防被识别）");
         System.out.println("  --name-prefix      生成程序文件名前缀 (默认 jre-check)");
+        System.out.println("  --max-jvms N       --scan 最多审计进程数 (默认 10)");
         System.out.println();
         System.out.println("示例:");
         System.out.println("  java -jar memshell-auditor.jar 12345");

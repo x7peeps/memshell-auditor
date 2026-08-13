@@ -173,3 +173,20 @@ public class org.springframework.ServletRequestAujFilter extends java.lang.Class
 **问题现象**：`auditor→checker` 规则把类名 `AuditorMain` 也替换成 `CheckerMain`，但 class 文件路径还是 AuditorMain.class，this_class 与文件路径不一致 → `NoClassDefFoundError: wrong name`。
 
 **解法**：只替换包名前缀 + 独立敏感词（memshell/webshell 等），不替换类名中的词。
+
+## 坑 13：取证人员不知道审计哪个 PID
+
+**问题**：工具需要指定 `<pid>`，但现场取证人员面对几十个 Java 进程，不知道哪个是目标 Web 应用，逐个试不现实。
+
+**解法**：新增 `--scan` 全自动扫描模式：
+- 枚举所有 Java 进程（VirtualMachine.list()）
+- 可疑度评分排序（Tomcat/Spring Boot/WebLogic 等 Web 容器 +100 优先，可疑关键字 +60，工具/守护 -30，自身 -1000）
+- 自动跳过自身与工具进程，逐个 attach 审计
+- 汇总按 HIGH 数排行输出（取证人员一眼锁定可疑进程）
+
+**实测**：9 进程环境扫描，Web 容器 3 个排前，自身进程正确识别跳过，5 个目标逐个审计，汇总 HIGH=2/1/1/1/0。
+
+**后续优化方向**：
+- 并发扫描（当前串行，多进程场景可提速）
+- 超时控制（个别进程 attach 卡住会影响整体）
+- 报表文件聚合（当前每进程一个 JSON，可加总览 XML/HTML）
