@@ -1,0 +1,22 @@
+{
+  "tool": "memshell-auditor",
+  "version": "1.0.0",
+  "pid": 22697,
+  "target": "/private/tmp/memshell-test / MemshellInjectTarget2 /tmp/jmg-payloads/antsword-filter.b64 18103",
+  "javaVersion": "26.0.1",
+  "summary": {"HIGH": 1, "MEDIUM": 2, "LOW": 0, "INFO": 9, "total": 12},
+  "findings": [
+    {"level":"INFO","signal":"N/A","category":"Container","className":"","classLoader":"","reason":"发现 1 个容器上下文实例，开始组件审计","evidence":""},
+    {"level":"HIGH","signal":"A1","category":"Filter","className":"org.springframework.AbstractMatcherVyjFilter","classLoader":"","reason":"FilterDef 注册的类在磁盘无对应 class 文件（动态加载），高度疑似内存马","evidence":"核对 org.springframework.AbstractMatcherVyjFilter 是否存在对应 class/jar"},
+    {"level":"INFO","signal":"N/A","category":"Listener","className":"","classLoader":"","reason":"Listener -> org.apache.catalina.startup.Tomcat$DefaultWebXmlListener 正常","evidence":""},
+    {"level":"INFO","signal":"N/A","category":"Listener","className":"","classLoader":"","reason":"Listener -> org.apache.catalina.startup.ContextConfig 正常","evidence":""},
+    {"level":"INFO","signal":"N/A","category":"Listener","className":"","classLoader":"","reason":"Listener -> org.apache.catalina.core.StandardHost$MemoryLeakTrackingListener 正常","evidence":""},
+    {"level":"INFO","signal":"N/A","category":"Listener","className":"","classLoader":"","reason":"Listener -> org.apache.catalina.mapper.MapperListener 正常","evidence":""},
+    {"level":"INFO","signal":"N/A","category":"Valve","className":"","classLoader":"","reason":"Valve -> org.apache.catalina.authenticator.NonLoginAuthenticator 正常","evidence":""},
+    {"level":"INFO","signal":"N/A","category":"Valve","className":"","classLoader":"","reason":"Valve -> org.apache.catalina.core.StandardContextValve 正常","evidence":""},
+    {"level":"INFO","signal":"N/A","category":"Agent","className":"","classLoader":"","reason":"启动参数未发现 -javaagent/-agentlib，sun.java.command=MemshellInjectTarget2 /tmp/jmg-payloads/antsword-filter.b64 18103","evidence":""},
+    {"level":"MEDIUM","signal":"B2","category":"Agent","className":"MemshellInjectTarget2","classLoader":"jdk.internal.loader.ClassLoaders$AppClassLoader@5bc2b487","reason":"已加载类名含可疑关键字（memshell/webshell/inject 等）","evidence":"jad MemshellInjectTarget2 ; 核对来源 jar"},
+    {"level":"INFO","signal":"N/A","category":"ClassLoader","className":"","classLoader":"","reason":"未发现非系统 ClassLoader，血缘结构正常","evidence":""},
+    {"level":"MEDIUM","signal":"B1","category":"ClassFeature","className":"MemshellInjectTarget2","classLoader":"jdk.internal.loader.ClassLoaders$AppClassLoader@5bc2b487","reason":"类名包含恶意关键字（memshell/webshell/behinder/godzilla 等）","evidence":"jad MemshellInjectTarget2 ; 核对来源（arthas: classloader -c <hash> -r）"}
+  ]
+}
