@@ -114,6 +114,40 @@ java -jar memshell-auditor.jar --scan
 - **逐个审计**并汇总：按检出 HIGH 数排行，一眼锁定可疑进程
 - 实测 9 进程环境：自动识别 4 个高危目标（HIGH=2/1/1/1）+ 1 个正常，全程无需人工指定 PID
 
+## 实时监控（--live，v2.3+）
+
+**解决运行时窗口局限**：attach 后安装监控 transformer，**后续任何新 defineClass 的类在定义瞬间被捕获**——不再依赖事后 retransform（retransform 失败的载荷也能在注入时拿到字节码）：
+
+```bash
+# 取证程序 attach 并保持监控 60 秒，期间注入的内存马实时捕获+dump
+java -jar system-diag-2c4488.jar <PID> --dump ./dump --live 60
+```
+
+实测：attach 后目标进程注入冰蝎内存马 → 定义瞬间捕获 4160B 字节码 + HIGH finding，**无需 retransform**。
+
+## 威胁情报集成（--analyze 自动查询，v2.4+）
+
+**解决回连分析噪声**：--analyze 分析报告时，自动提取 Callback/Network 回连地址做威胁情报查询：
+
+```bash
+# 无 key 时启发式降级（端口特征判定 C2/隧道）
+java -jar memshell-auditor.jar --analyze report.json
+
+# 配置微步 API key（ai.json 加 threatbook_key 字段）→ 精确查询
+java -jar memshell-auditor.jar --analyze report.json --ai-config ai.json
+```
+
+实测：`117.28.246.44:10427` 命中 `🔴 HIGH | 常见恶意软件/隧道端口(10427)`。
+
+## hprof 堆转储解析（v2.5+）
+
+**解决 retransform 失败载荷的取证兜底**：--heap 生成的堆 dump 自动深度解析（字符串/类名/恶意特征/字节码统计），即使 retransform 失败也能从堆中恢复证据：
+
+```
+hprof 解析: 字符串 80103 条 / 类 3389 个 / 恶意特征命中 1294 / 类字节码 305 段
+搜 SessionKqvc: [org.springframework.SessionKqvcFilter] ✓ ← retransform 失败的 Suo5 载荷类名从堆中完整提取
+```
+
 ## 双程序架构（防取证识别）
 
 为了防止内存马识别取证工具（固定进程名/类名特征会被攻击者预判并反制），本工具采用**双程序架构**：
