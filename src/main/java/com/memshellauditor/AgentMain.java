@@ -118,6 +118,7 @@ public class AgentMain {
                 if (liveSeconds == null) liveSeconds = String.valueOf(mcfg.liveSeconds);
                 System.out.println("[monitor] 值守监控已配置 webhook: " + mcfg.webhookType
                         + " (min_level=" + mcfg.minLevel + ", interval=" + mcfg.intervalSeconds + "s)");
+                monitorSession.startHeartbeat();
             } catch (Throwable t) {
                 System.out.println("[monitor] 监控配置解析失败: " + t);
             }

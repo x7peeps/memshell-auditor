@@ -291,6 +291,15 @@ src/main/java/com/memshellauditor/
     └── ReflectUtil.java     # 零依赖反射工具（含动态自排除）
 ```
 
+## 局限性
+
+1. **JMG 混淆载荷的 dump 限制**：Behinder 等规整载荷可完整 dump+反编译；Suo5 等经过激进 ASM 处理的载荷，JVM 拒绝 retransform（invalid class）——此类由 **--live 定义时捕获** + **hprof 堆解析**双兜底
+2. **Agent 型内存马（Instrumentation transformer 注入）**：JDK 标准 API 无法枚举已注册的 ClassFileTransformer，通过 `getAllLoadedClasses` 类特征 + 内部字段探测间接检测（高版本 JDK 部分受限）
+3. **回连分析噪声**：lsof 会混入本机其他服务的连接（代理/远程控制等），已集成威胁情报自动判定，特殊场景仍需人工复核
+4. **容器定位依赖 WebappClassLoader**：极度精简的 classpath 模式（非 WAR 部署）可能定位不到 StandardContext
+5. **运行时窗口**：attach 只能看到当前已加载的类；`--live` 模式可覆盖后续注入，attach 前已执行完的恶意行为不在检测范围
+6. **JDK 21+ attach 依赖**：高版本 JDK 需要 `--add-modules jdk.attach` 且可能需 `-XX:+EnableDynamicAgentLoading`
+
 ## Contributing
 
 - **提 Issue/PR**：https://github.com/x7peeps/memshell-auditor/issues

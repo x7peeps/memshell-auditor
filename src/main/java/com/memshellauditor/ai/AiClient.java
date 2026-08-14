@@ -78,36 +78,59 @@ public class AiClient {
      */
     public String chat(String systemPrompt, String userPrompt) {
         if (!isConfigured()) return null;
-        try {
-            String url = baseUrl;
-            if (!url.endsWith("/chat/completions")) {
-                if (!url.endsWith("/")) url += "/";
-                url += "chat/completions";
-            }
-            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-            conn.setRequestMethod("POST");
-            conn.setConnectTimeout(timeoutMs);
-            conn.setReadTimeout(timeoutMs);
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
-            conn.setDoOutput(true);
+        int maxRetries = 2;
+        long delay = 1000;
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                String url = baseUrl;
+                if (!url.endsWith("/chat/completions")) {
+                    if (!url.endsWith("/")) url += "/";
+                    url += "chat/completions";
+                }
+                HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+                conn.setRequestMethod("POST");
+                conn.setConnectTimeout(timeoutMs);
+                conn.setReadTimeout(timeoutMs);
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+                conn.setDoOutput(true);
 
-            String body = buildChatBody(systemPrompt, userPrompt);
-            OutputStream os = conn.getOutputStream();
-            os.write(body.getBytes("UTF-8"));
-            os.flush();
-            os.close();
+                String body = buildChatBody(systemPrompt, userPrompt);
+                OutputStream os = conn.getOutputStream();
+                os.write(body.getBytes("UTF-8"));
+                os.flush();
+                os.close();
 
-            int code = conn.getResponseCode();
-            if (code >= 200 && code < 300) {
-                return parseChatResponse(readAll(conn.getInputStream()));
-            } else {
-                String err = readAll(conn.getErrorStream());
+                int code = conn.getResponseCode();
+                if (code >= 200 && code < 300) {
+                    return parseChatResponse(readAll(conn.getInputStream()));
+                } else if (code >= 500 || code == 429) {
+                    // 服务端错误/限流 → 可重试
+                    System.out.println("[ai] 调用失败 (" + code + ")，重试 " + (attempt + 1) + "/" + maxRetries);
+                    conn.disconnect();
+                    if (attempt < maxRetries) {
+                        try { Thread.sleep(delay); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null; }
+                        delay *= 2;
+                        continue;
+                    }
+                    return null;
+                } else {
+                    // 4xx 客户端错误 → 不重试
+                    String err = readAll(conn.getErrorStream());
+                    conn.disconnect();
+                    return null;
+                }
+            } catch (Throwable t) {
+                // 网络异常 → 可重试
+                if (attempt < maxRetries) {
+                    try { Thread.sleep(delay); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null; }
+                    delay *= 2;
+                    continue;
+                }
                 return null;
             }
-        } catch (Throwable t) {
-            return null;
         }
+        return null;
     }
 
     private String buildChatBody(String system, String user) {

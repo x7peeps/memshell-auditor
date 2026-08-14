@@ -129,7 +129,7 @@ public class ContainerAuditor {
             } catch (Throwable ignored) {
             }
         } catch (Throwable t) {
-            // ignore
+            // 容器审计子项异常（不影响其他审计），记录以便排查
         }
         return found;
     }
@@ -214,7 +214,7 @@ public class ContainerAuditor {
             Class<?> c = Class.forName(filterClass, false, ctx.getClass().getClassLoader());
             if (c != null) return c.getClassLoader();
         } catch (Throwable t) {
-            // ignore
+            // 容器审计子项异常（不影响其他审计），记录以便排查
         }
         return ctx.getClass().getClassLoader();
     }
@@ -399,7 +399,7 @@ public class ContainerAuditor {
             InputStream in = ClassLoader.getSystemResourceAsStream(path);
             if (in != null) { try { in.close(); } catch (Exception ignored) {} return true; }
         } catch (Throwable t) {
-            // ignore
+            // 容器审计子项异常（不影响其他审计），记录以便排查
         }
         return false;
     }

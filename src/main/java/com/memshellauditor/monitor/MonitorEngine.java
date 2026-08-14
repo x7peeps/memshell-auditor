@@ -90,6 +90,31 @@ public class MonitorEngine {
             }
         }
 
+        /** 启动心跳线程（每 intervalSeconds 推送一次心跳，确认监控存活） */
+        public synchronized void startHeartbeat() {
+            if (heartbeatStarted) return;
+            heartbeatStarted = true;
+            final String desc = targetDesc;
+            Thread t = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    while (!stopped) {
+                        try {
+                            Thread.sleep(Math.max(config.intervalSeconds, 30) * 1000);
+                            if (!stopped) client.pushHeartbeat(desc);
+                        } catch (InterruptedException e) {
+                            break;
+                        }
+                    }
+                }
+            }, "monitor-heartbeat");
+            t.setDaemon(true);
+            t.start();
+        }
+
+        private volatile boolean stopped = false;
+        private boolean heartbeatStarted = false;
+
         /** 汇总推送全部待发发现 */
         public synchronized void flush() {
             if (pending.isEmpty()) return;
@@ -108,8 +133,9 @@ public class MonitorEngine {
             lastPush = System.currentTimeMillis();
         }
 
-        /** 监控结束（超时/中断）时强制推送剩余 */
+        /** 监控结束（超时/中断）时强制推送剩余 + 停止心跳 */
         public synchronized void close() {
+            stopped = true;
             flush();
         }
     }

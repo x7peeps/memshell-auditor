@@ -49,44 +49,63 @@ public class WebhookClient {
         return level >= minLevel;
     }
 
-    /** 推送 markdown 消息。返回是否成功（HTTP 2xx）。 */
+    /** 推送 markdown 消息。返回是否成功（HTTP 2xx）。带重试（指数退避，最多 maxRetries 次） */
     public boolean pushMarkdown(String title, String body) {
+        return pushMarkdown(title, body, 3);
+    }
+
+    /** 推送 markdown 消息，可指定重试次数 */
+    public boolean pushMarkdown(String title, String body, int maxRetries) {
         if (url == null || url.isEmpty()) return false;
-        try {
-            String payload = buildPayload(title, body);
-            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-            conn.setConnectTimeout(10000);
-            conn.setReadTimeout(10000);
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            conn.setDoOutput(true);
-            OutputStream os = conn.getOutputStream();
-            os.write(payload.getBytes("UTF-8"));
-            os.flush();
-            os.close();
-            int code = conn.getResponseCode();
-            // 读取响应（错误信息诊断用）
-            java.io.InputStream is = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
-            StringBuilder sb = new StringBuilder();
-            if (is != null) {
-                java.io.BufferedReader br = new java.io.BufferedReader(
-                        new java.io.InputStreamReader(is, "UTF-8"));
-                String line;
-                while ((line = br.readLine()) != null) sb.append(line);
-                br.close();
+        int attempt = 0;
+        long delay = 1000;
+        while (true) {
+            try {
+                String payload = buildPayload(title, body);
+                HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(10000);
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                conn.setDoOutput(true);
+                OutputStream os = conn.getOutputStream();
+                os.write(payload.getBytes("UTF-8"));
+                os.flush();
+                os.close();
+                int code = conn.getResponseCode();
+                java.io.InputStream is = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
+                StringBuilder sb = new StringBuilder();
+                if (is != null) {
+                    java.io.BufferedReader br = new java.io.BufferedReader(
+                            new java.io.InputStreamReader(is, "UTF-8"));
+                    String line;
+                    while ((line = br.readLine()) != null) sb.append(line);
+                    br.close();
+                }
+                conn.disconnect();
+                if (code >= 200 && code < 300) {
+                    System.out.println("[monitor] webhook 推送成功 (" + code + "): " + title);
+                    return true;
+                } else {
+                    System.out.println("[monitor] webhook 推送失败 (" + code + "): " + sb);
+                }
+            } catch (Throwable t) {
+                System.out.println("[monitor] webhook 推送异常: " + t);
             }
-            conn.disconnect();
-            if (code >= 200 && code < 300) {
-                System.out.println("[monitor] webhook 推送成功 (" + code + "): " + title);
-                return true;
-            } else {
-                System.out.println("[monitor] webhook 推送失败 (" + code + "): " + sb);
-                return false;
-            }
-        } catch (Throwable t) {
-            System.out.println("[monitor] webhook 推送异常: " + t);
-            return false;
+            attempt++;
+            if (attempt >= maxRetries) return false;
+            try { Thread.sleep(delay); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return false; }
+            delay *= 2; // 指数退避: 1s -> 2s -> 4s
         }
+    }
+
+    /** 心跳消息：确认监控 agent 存活 */
+    public boolean pushHeartbeat(String targetDesc) {
+        String body = "**目标**: " + targetDesc + "\n"
+                + "**状态**: 监控中\n"
+                + "**时间**: " + new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                        .format(new java.util.Date());
+        return pushMarkdown("💓 内存马值守监控心跳", body, 1);
     }
 
     /** 按平台类型构造 markdown 消息 payload */

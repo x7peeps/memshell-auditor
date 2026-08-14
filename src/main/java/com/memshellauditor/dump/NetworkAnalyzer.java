@@ -28,6 +28,8 @@ public final class NetworkAnalyzer {
                 result = analyzeLinux(pid);
             } else if (os.contains("mac") || os.contains("darwin")) {
                 result = analyzeMac(pid);
+            } else if (os.contains("win")) {
+                result = analyzeWindows(pid);
             } else {
                 // 其他系统尝试 lsof
                 result = analyzeMac(pid);
@@ -187,5 +189,42 @@ public final class NetworkAnalyzer {
         public String toString() {
             return local + " -> " + remote + " (" + state + ")";
         }
+    }
+
+    // ---------------- Windows ----------------
+
+    private static List<Conn> analyzeWindows(int pid) {
+        List<Conn> conns = new ArrayList<Conn>();
+        try {
+            // netstat -ano 输出: TCP 1.2.3.4:80 5.6.7.8:443 ESTABLISHED 1234
+            ProcessBuilder pb = new ProcessBuilder("netstat", "-ano");
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream(), "UTF-8"));
+            String line;
+            String pidStr = String.valueOf(pid);
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                if (!line.toLowerCase().startsWith("tcp")) continue;
+                // 最后一段是 PID
+                int lastSpace = line.lastIndexOf(' ');
+                if (lastSpace < 0) continue;
+                String linePid = line.substring(lastSpace + 1).trim();
+                if (!linePid.equals(pidStr)) continue;
+                String[] parts = line.split("\\s+");
+                if (parts.length < 4) continue;
+                String local = parts[1];
+                String remote = parts[2];
+                String state = parts[3];
+                if ("0.0.0.0:0".equals(remote) || "[::]:0".equals(remote) || "127.0.0.1".equals(remote.split(":")[0])) continue;
+                conns.add(new Conn(state, local, remote, "-"));
+            }
+            br.close();
+            p.waitFor();
+        } catch (Throwable t) {
+            // ignore
+        }
+        return conns;
     }
 }

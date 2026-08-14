@@ -113,13 +113,9 @@ public final class HprofParser {
                 }
             }
 
-            // 类字节码统计（cafebabe 魔数在堆中的出现，含内存马字节码）
+            // 类字节码统计（cafebabe 魔数，流式分块读取避免大堆 OOM）
             try {
-                byte[] buf = new byte[(int) Math.min(hprof.length(), 256 * 1024 * 1024)];
-                RandomAccessFile raf2 = new RandomAccessFile(hprof, "r");
-                raf2.readFully(buf);
-                raf2.close();
-                r.classBytecodeHits = countMagic(buf);
+                r.classBytecodeHits = countMagicStream(hprof);
             } catch (Throwable ignored) {}
 
             // 汇总
@@ -150,5 +146,62 @@ public final class HprofParser {
                     && (data[i+2] & 0xFF) == 0xBA && (data[i+3] & 0xFF) == 0xBE) count++;
         }
         return count;
+    }
+
+    /** 流式统计 cafebabe 魔数：1MB 分块 + 3 字节重叠，兼容任意大小堆 dump */
+    private static int countMagicStream(File hprof) throws Exception {
+        int count = 0;
+        RandomAccessFile raf = new RandomAccessFile(hprof, "r");
+        byte[] chunk = new byte[1024 * 1024];
+        byte[] overlap = new byte[3];
+        long pos = 0;
+        long len = raf.length();
+        try {
+            while (pos < len) {
+                raf.seek(pos);
+                int read = raf.read(chunk);
+                if (read <= 0) break;
+                count += countMagic(chunk, read);
+                // 处理与上一块的重叠边界
+                if (pos > 0) {
+                    raf.seek(pos - 3);
+                    byte[] edge = new byte[3];
+                    int er = raf.read(edge);
+                    if (er == 3) {
+                        // 边界 4 字节 = overlap[0..2] + chunk[0]
+                        byte[] quad = new byte[]{edge[0], edge[1], edge[2], chunk[0]};
+                        if (isMagic(quad)) count++;
+                        // 边界也可能跨 2 个字节: overlap[1..2] + chunk[0..1]
+                        byte[] quad2 = new byte[]{edge[1], edge[2], chunk[0], chunk[1]};
+                        if (isMagic(quad2)) count++;
+                        // 跨 1 个字节: overlap[2] + chunk[0..2]
+                        byte[] quad3 = new byte[]{edge[2], chunk[0], chunk[1], chunk[2]};
+                        if (isMagic(quad3)) count++;
+                    }
+                }
+                pos += read;
+            }
+        } finally {
+            raf.close();
+        }
+        return count;
+    }
+
+    private static int countMagic(byte[] data, int len) {
+        int count = 0;
+        for (int i = 0; i <= len - 4; i++) {
+            if (isMagic(data, i)) count++;
+        }
+        return count;
+    }
+
+    private static boolean isMagic(byte[] d, int off) {
+        return (d[off] & 0xFF) == 0xCA && (d[off+1] & 0xFF) == 0xFE
+                && (d[off+2] & 0xFF) == 0xBA && (d[off+3] & 0xFF) == 0xBE;
+    }
+
+    private static boolean isMagic(byte[] d) {
+        return (d[0] & 0xFF) == 0xCA && (d[1] & 0xFF) == 0xFE
+                && (d[2] & 0xFF) == 0xBA && (d[3] & 0xFF) == 0xBE;
     }
 }

@@ -140,6 +140,7 @@ public class AuditorMain {
         System.out.println("用法:");
         System.out.println("  java -jar memshell-auditor.jar --gen-agent <输出目录> [--name-prefix <前缀>]");
         System.out.println("      生成混淆取证程序（防识别，每次随机特征），丢到目标系统执行 --scan");
+        System.out.println("      取证程序支持: --scan / <pid> / --live / --monitor <monitor.json>（webhook 值守监控）");
         System.out.println();
         System.out.println("  java -jar memshell-auditor.jar --analyze <report.json> [--ai-config ai.json]");
         System.out.println("      分析取证报告；未配置 AI 时结尾引导配置，配置后重跑自动带 AI 增强");

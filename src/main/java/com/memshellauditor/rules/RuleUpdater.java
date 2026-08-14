@@ -70,6 +70,15 @@ public class RuleUpdater {
         String ver = fetch(RAW_PREFIX + repo + "/main/rules/version");
         if (ver == null) ver = fetch(RAW_PREFIX + repo + "/master/rules/version");
         if (ver == null) ver = fetch(RAW_PREFIX + repo + "/main/version"); // 兼容旧布局
+        // 缓存优化：远端版本与本地一致且已有规则 → 跳过全量下载
+        String localVer = com.memshellauditor.VersionInfo.readRuleVersion();
+        if (ver != null && !ver.trim().isEmpty()
+                && ver.trim().equals(localVer)
+                && RuleStore.listRules().size() > 0) {
+            System.out.println("[*] 策略版本: " + ver.trim() + "（与本地一致，跳过下载）");
+            System.out.println("[*] 本地规则 " + RuleStore.listRules().size() + " 条已是最新");
+            return;
+        }
         if (ver != null && !ver.trim().isEmpty()) {
             com.memshellauditor.VersionInfo.writeRuleVersion(ver.trim());
             System.out.println("[*] 策略版本: " + ver.trim());
