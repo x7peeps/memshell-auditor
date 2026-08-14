@@ -22,6 +22,7 @@
 <tr><td><b>🕵️ 双程序防识别</b></td><td>--gen-agent 每次生成随机文件名/包名/类名的混淆取证程序，攻击者无法预判；取证程序不含 AI 能力防暴露，AI 仅在主程序。</td></tr>
 <tr><td><b>⚡ 全自动扫描 --scan</b></td><td>无需知道 PID，自动枚举所有 Java 进程按可疑度排序审计，并发加速（--parallel）。</td></tr>
 <tr><td><b>📡 实时监控 --live</b></td><td>attach 后新 defineClass 的类在定义瞬间捕获字节码，无需 retransform（retransform 失败的载荷也能取证）。</td></tr>
+<tr><td><b>🔔 值守监控 --monitor</b></td><td>检测到可疑动态加载类实时推送群机器人（企业微信/钉钉/飞书 webhook），配置驱动，适合值守客户现场。</td></tr>
 <tr><td><b>🛡️ 威胁情报集成</b></td><td>--analyze 自动查询回连 IP（微步 API + 启发式降级），C2/隧道端口自动判 HIGH。</td></tr>
 <tr><td><b>🧠 hprof 堆解析</b></td><td>jmap 堆 dump 自动深度解析，retransform 失败的载荷类名/字节码从堆中恢复。</td></tr>
 <tr><td><b>🤖 AI 增强分析</b></td><td>OpenAI 通用兼容接口（DeepSeek/通义/Ollama/vLLM），可配可跳过，离线自动降级本地规则。</td></tr>
@@ -64,6 +65,10 @@ java -jar system-diag-2c4488.jar <PID> --dump ./dump --heap ./heap
 
 # ③ 实时监控：attach 后保持监听 60 秒，期间注入的内存马定义时捕获
 java -jar system-diag-2c4488.jar <PID> --dump ./dump --live 60
+
+# ④ 值守监控：attach 后持续监控，检测到可疑动态加载类实时推送到群机器人
+#    （企业微信/钉钉/飞书 webhook，配置见 monitor.example.json）
+java -jar system-diag-2c4488.jar <PID> --monitor monitor.json --dump ./dump
 ```
 
 ### 报告分析（分析者机器）
