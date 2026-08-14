@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="280" viewBox="0 0 1280 280">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d1117"/>
+      <stop offset="100%" style="stop-color:#161b22"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2d6cdf"/>
+      <stop offset="100%" style="stop-color:#58a6ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="280" fill="url(#bg)"/>
+  <!-- 终端窗口 -->
+  <rect x="90" y="40" width="1100" height="200" rx="12" fill="#0d1117" stroke="#30363d" stroke-width="2"/>
+  <rect x="90" y="40" width="1100" height="36" rx="12" fill="#161b22"/>
+  <circle cx="120" cy="58" r="6" fill="#ff5f56"/>
+  <circle cx="144" cy="58" r="6" fill="#ffbd2e"/>
+  <circle cx="168" cy="58" r="6" fill="#27c93f"/>
+  <text x="1180" y="65" font-family="Menlo,monospace" font-size="14" fill="#8b949e" text-anchor="end">memshell-auditor — Java 内存马运行时审计</text>
+  <!-- 标题 -->
+  <text x="640" y="110" font-family="Menlo,monospace" font-size="44" font-weight="bold" fill="#e6edf3" text-anchor="middle">memshell-auditor</text>
+  <!-- 副标题 -->
+  <text x="640" y="145" font-family="Menlo,monospace" font-size="20" fill="#58a6ff" text-anchor="middle">attach → detect → dump → forensics → AI</text>
+  <!-- 终端内容 -->
+  <text x="120" y="185" font-family="Menlo,monospace" font-size="15" fill="#7ee787">$ java -jar memshell-auditor.jar --scan --dump ./dump --heap ./heap</text>
+  <text x="120" y="210" font-family="Menlo,monospace" font-size="15" fill="#8b949e">[*] 发现 9 个 Java 进程，按可疑度排序...</text>
+  <text x="120" y="230" font-family="Menlo,monospace" font-size="15" fill="#ff7b72">[HIGH] Filter org.springframework.ServletRequestAujFilter → A1 磁盘无 class</text>
+</svg>

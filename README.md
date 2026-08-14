@@ -1,14 +1,96 @@
-# memshell-auditor
+<p align="center">
+  <img src="assets/banner.svg" alt="memshell-auditor" width="100%">
+</p>
 
-Java 内存马（Memory Shell）运行时审计 Agent —— attach 到目标 JVM，检测容器层（Filter/Servlet/Listener/Valve）与 JVM 层（Agent 型/defineClass 注入）内存马。
+# memshell-auditor 🔍
+<p align="center">
+  <a href="https://github.com/x7peeps/memshell-auditor"><img src="https://img.shields.io/badge/GitHub-x7peeps%2Fmemshell--auditor-2d6cdf?style=for-the-badge&logo=github" alt="GitHub"></a>
+  <a href="https://github.com/x7peeps/memshell-auditor/releases"><img src="https://img.shields.io/badge/Release-v2.6-blue?style=for-the-badge" alt="Release v2.6"></a>
+  <a href="https://github.com/x7peeps/memshell-auditor/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/x7peeps/memshell-auditor/releases"><img src="https://img.shields.io/badge/JDK-8--26-orange?style=for-the-badge" alt="JDK 8-26"></a>
+  <a href="https://img.shields.io/badge/Detection-7%2F7%20JMG%20payloads-red?style=for-the-badge"><img src="https://img.shields.io/badge/Detection-7%2F7%20JMG%20payloads-red?style=for-the-badge" alt="Detection 7/7"></a>
+</p>
 
-**零依赖**（JDK 8 编译，目标 JVM 兼容 JDK 8-21+），**纯反射**实现（不依赖具体中间件类），**JSON/控制台双输出**。
+**Java 内存马运行时审计 Agent** —— attach 到目标 JVM，检测容器层（Filter/Servlet/Listener/Valve）与 JVM 层（Agent 型/defineClass 注入）内存马，并在检出后完成 dump / 反编译 / 回连 / 堆取证 / AI 分析的全链路闭环。
+
+**零依赖**（JDK 8 编译，目标 JVM 兼容 JDK 8-26），**纯反射**实现（不依赖具体中间件类），**JSON/控制台双输出**。特征库随版本内置（rules/ 目录），在线更新 + 增量同步 + 自定义规则保护。
 
 > ⚠️ 本工具仅用于授权环境下的安全应急响应、攻防演练与防御建设。请确保你的行为符合当地法律法规。
+
+<table>
+<tr><td><b>🔴 A1 强信号检测</b></td><td>容器组件（Filter/Servlet/Listener/Valve）注册的类在磁盘无对应 class 文件——主流生成器（JMG/MemShellParty）全部伪装 Spring 类名，但 A1 不受影响，实测 7/7 检出。</td></tr>
+<tr><td><b>🕵️ 双程序防识别</b></td><td>--gen-agent 每次生成随机文件名/包名/类名的混淆取证程序，攻击者无法预判；取证程序不含 AI 能力防暴露，AI 仅在主程序。</td></tr>
+<tr><td><b>⚡ 全自动扫描 --scan</b></td><td>无需知道 PID，自动枚举所有 Java 进程按可疑度排序审计，并发加速（--parallel）。</td></tr>
+<tr><td><b>📡 实时监控 --live</b></td><td>attach 后新 defineClass 的类在定义瞬间捕获字节码，无需 retransform（retransform 失败的载荷也能取证）。</td></tr>
+<tr><td><b>🛡️ 威胁情报集成</b></td><td>--analyze 自动查询回连 IP（微步 API + 启发式降级），C2/隧道端口自动判 HIGH。</td></tr>
+<tr><td><b>🧠 hprof 堆解析</b></td><td>jmap 堆 dump 自动深度解析，retransform 失败的载荷类名/字节码从堆中恢复。</td></tr>
+<tr><td><b>🤖 AI 增强分析</b></td><td>OpenAI 通用兼容接口（DeepSeek/通义/Ollama/vLLM），可配可跳过，离线自动降级本地规则。</td></tr>
+<tr><td><b>📚 特征库生态</b></td><td>18 条内置规则（JMSH-001~018），在线更新 + 增量同步 + 自定义规则保护 + 众包特征提交。</td></tr>
+</table>
+
+---
+
+## Quick Install
+
+```bash
+# 一键部署（下载 jar + 同步特征库 + 生成取证程序）
+bash -c "$(curl -sL https://raw.githubusercontent.com/x7peeps/memshell-auditor/main/deploy.sh)"
+
+# 或直接下载 Release
+curl -L -o memshell-auditor.jar https://github.com/x7peeps/memshell-auditor/releases/latest/download/memshell-auditor.jar
+```
+
+环境要求：**JDK 8+**（JDK 21+ 附加 `--add-modules jdk.attach`）。
+
+安装后：
+
+```bash
+java -jar memshell-auditor.jar --version   # 检查安装
+java -jar memshell-auditor.jar --gen-agent ./agents --name-prefix system-diag  # 生成取证程序
+```
+
+---
+
+## Quick Start
+
+### 现场取证（取证人员）
+
+```bash
+# ① 目标系统上全自动扫描（无需知道 PID，自动识别可疑进程）
+java -jar system-diag-2c4488.jar --scan --dump ./dump --heap ./heap
+
+# ② 指定进程审计
+java -jar system-diag-2c4488.jar <PID> --dump ./dump --heap ./heap
+
+# ③ 实时监控：attach 后保持监听 60 秒，期间注入的内存马定义时捕获
+java -jar system-diag-2c4488.jar <PID> --dump ./dump --live 60
+```
+
+### 报告分析（分析者机器）
+
+```bash
+# 无 AI 配置时自动降级本地规则分析，结尾引导配置
+java -jar memshell-auditor.jar --analyze report.json
+
+# 配置 AI 增强（OpenAI 兼容：DeepSeek/通义/Ollama 均可用）
+java -jar memshell-auditor.jar --analyze report.json --ai-config ai.json
+```
+
+### 特征库管理
+
+```bash
+java -jar memshell-auditor.jar --rules update              # 拉取/更新特征库
+java -jar memshell-auditor.jar --rules list                # 列出规则（提交人/标题）
+java -jar memshell-auditor.jar --rules select --all        # 全选 / --id JMSH-001 逐个勾选
+java -jar memshell-auditor.jar --submit --report report.json --author 你的名字 --auto-commit  # 贡献新特征
+```
+
+---
 
 ## 为什么需要它
 
 内存马是 Web 攻防中最难检测的一类后门：
+
 - **无文件落盘**：磁盘扫描/WAF/EDR 文件检测全部失效
 - **类名伪装**：主流生成器（JMG/MemShellParty）生成的载荷全部伪装成 `org.springframework.*` 等框架类名，规避关键词检测
 - **容器层扫描盲区**：Filter 型内存马注册在容器内部，不产生磁盘文件，传统 WebShell 扫描器无能为力
@@ -17,7 +99,7 @@ memshell-auditor 通过 **attach 到运行中的 JVM**，直接审计容器内�
 
 ## 检测能力
 
-### 检测维度
+### 检测维度（信号分级）
 
 | 信号 | 检测项 | 判定 |
 |---|---|---|
@@ -28,30 +110,9 @@ memshell-auditor 通过 **attach 到运行中的 JVM**，直接审计容器内�
 | **B1** | 类名特征（无包名/短随机名/恶意关键字） | 🟡 辅助信号 |
 | **B2** | 已加载类名含可疑关键字 | 🟡 辅助信号 |
 
-### 取证能力（v1.1+，检出后的闭环）
+### 启发式检测（对抗未知变种）
 
-| 能力 | 说明 | 状态 |
-|---|---|---|
-| **Dump 落盘** | 可疑类字节码提取并写盘（磁盘类用资源流，动态类用 retransform 技巧） | ✅ 实测通过 |
-| **反编译核心代码** | javap 反汇编 + 提取恶意核心片段（命令执行/网络/Base64 解密等） | ✅ 实测通过 |
-| **回连分析** | 进程 ESTABLISHED 外连分析 + 字节码字符串中的 IP/域名提取 | ✅ 基础版 |
-| **Callback 汇总** | 疑似回连地址统一汇总为 HIGH Finding（供威胁情报查询） | ✅ |
-
-### 检测原理
-
-```
-attach 目标 JVM (VirtualMachine.attach)
-  ├─ ContainerAuditor: 定位 StandardContext
-  │    └─ WebappClassLoader.resources(字段) → StandardRoot.getContext()
-  │         ├─ filterDefs/filterConfigs 审计 → Filter 类磁盘存在性
-  │         ├─ findChildren() → Servlet 审计
-  │         ├─ applicationEventListeners → Listener 审计
-  │         └─ getPipeline().getValves() → Valve 审计
-  ├─ AgentAuditor: 启动参数/环境变量/classpath 审计
-  ├─ ClassLoaderAuditor: ClassLoader 血缘分析
-  └─ ClassFeatureAuditor: 已加载类特征 + 磁盘存在性
-        └─ 非系统 Loader + 磁盘无 class → A1 强信号
-```
+不依赖已知特征，从字节码可读字符串提取**行为模式组合评分**：命令执行（Runtime.exec/ProcessBuilder）+ 动态加载（defineClass）+ 载荷解密（Base64/AES/Cipher）+ 网络回连（Socket/硬编码 IP）+ WebShell 回显（getParameter + 响应流）。**容器组件特征 + ≥2 个行为模式 → 判定可疑**，类名伪装无效。
 
 ### 实测检测结果（开源生成器真实载荷）
 
@@ -67,86 +128,24 @@ attach 目标 JVM (VirtualMachine.attach)
 | godzilla-valve | 哥斯拉 Godzilla | Valve | `org.apache.AbstractMatcherGbValve` | Tomcat 10.1 | ✅ HIGH |
 | behinder-listener2 | 冰蝎 Behinder | Listener | `org.springframework.ContextLoaderDmasjListener` | Tomcat 9.0 | ✅ HIGH |
 
-**关键结论**：主流生成器全部伪装类名（Spring/Logging/Apache 前缀 + 随机后缀），类名特征检测可被绕过；但 **A1 强信号（磁盘无 class 文件）不受影响**，因为无论类名伪装成什么，磁盘上都不存在对应 class 文件。
+**关键结论**：主流生成器全部伪装类名（Spring/Logging/Apache 前缀 + 随机后缀），类名特征检测可被绕过；但 **A1 强信号（磁盘无 class 文件）不受影响**——无论类名伪装成什么，磁盘上都不存在对应 class 文件。
 
 **误报控制**：正常业务 Filter（磁盘 WEB-INF/classes 存在）→ INFO；容器自带 Listener/Valve → INFO；JDK 类/数组类/自身类 → 白名单豁免。
 
 完整测试记录见 [evidence/00-test-log.md](evidence/00-test-log.md)。
 
-## 快速开始
+## 取证闭环
 
-### 构建
+检出不是终点——还要能 dump、反编译、分析回连：
 
-```bash
-mvn clean package -DskipTests
-# 产物: target/memshell-auditor.jar
-```
-
-需要 JDK 8+ 编译环境（`--release 8` 保证目标 JVM 兼容 JDK 8-21+）。
-
-### 使用
-
-```bash
-# 1. 全自动扫描所有 Java 进程（取证人员无需知道 PID，自动识别可疑进程）
-java -jar memshell-auditor.jar --scan [--dump dir] [--heap dir] [--ai-config ai.json] [--max-jvms 10]
-
-# 2. attach 到指定 JVM 执行完整审计（检测 + 取证 + AI 分析）
-java -jar memshell-auditor.jar <PID> [--report out.json] [--dump dir] [--heap dir] [--ai-config ai.json]
-
-# 3. 生成混淆取证程序（防识别，每次随机特征）
-java -jar memshell-auditor.jar --gen-agent <输出目录> [--name-prefix <前缀>]
-#    生成的程序（如 system-diag-2c4488.jar）丢到目标系统取证：
-java -jar system-diag-2c4488.jar --scan --dump ./dump --heap ./heap
-
-# 4. 分析者机器上对取证报告做 AI 增强分析（OpenAI 兼容接口）
-java -jar memshell-auditor.jar --analyze <report.json> [--ai-config ai.json]
-```
-
-### 全自动扫描（--scan）
-
-取证人员**不需要知道审计哪个 PID**，一条命令扫全部 Java 进程：
-
-```bash
-java -jar memshell-auditor.jar --scan
-```
-
-- **自动枚举**所有 Java 进程，按可疑度排序（Tomcat/Spring Boot/WebLogic 等 Web 容器优先，工具/守护进程降权，自动跳过自身）
-- **逐个审计**并汇总：按检出 HIGH 数排行，一眼锁定可疑进程
-- 实测 9 进程环境：自动识别 4 个高危目标（HIGH=2/1/1/1）+ 1 个正常，全程无需人工指定 PID
-
-## 实时监控（--live，v2.3+）
-
-**解决运行时窗口局限**：attach 后安装监控 transformer，**后续任何新 defineClass 的类在定义瞬间被捕获**——不再依赖事后 retransform（retransform 失败的载荷也能在注入时拿到字节码）：
-
-```bash
-# 取证程序 attach 并保持监控 60 秒，期间注入的内存马实时捕获+dump
-java -jar system-diag-2c4488.jar <PID> --dump ./dump --live 60
-```
-
-实测：attach 后目标进程注入冰蝎内存马 → 定义瞬间捕获 4160B 字节码 + HIGH finding，**无需 retransform**。
-
-## 威胁情报集成（--analyze 自动查询，v2.4+）
-
-**解决回连分析噪声**：--analyze 分析报告时，自动提取 Callback/Network 回连地址做威胁情报查询：
-
-```bash
-# 无 key 时启发式降级（端口特征判定 C2/隧道）
-java -jar memshell-auditor.jar --analyze report.json
-
-# 配置微步 API key（ai.json 加 threatbook_key 字段）→ 精确查询
-java -jar memshell-auditor.jar --analyze report.json --ai-config ai.json
-```
-
-实测：`117.28.246.44:10427` 命中 `🔴 HIGH | 常见恶意软件/隧道端口(10427)`。
-
-## hprof 堆转储解析（v2.5+）
-
-**解决 retransform 失败载荷的取证兜底**：--heap 生成的堆 dump 自动深度解析（字符串/类名/恶意特征/字节码统计），即使 retransform 失败也能从堆中恢复证据：
-
-```
-hprof 解析: 字符串 80103 条 / 类 3389 个 / 恶意特征命中 1294 / 类字节码 305 段
-搜 SessionKqvc: [org.springframework.SessionKqvcFilter] ✓ ← retransform 失败的 Suo5 载荷类名从堆中完整提取
-```
+| 能力 | 说明 | 状态 |
+|---|---|---|
+| **Dump 落盘** | 可疑类字节码提取并写盘（磁盘类用资源流，动态类用 retransform 技巧） | ✅ 实测通过 |
+| **反编译核心代码** | javap 反汇编 + 提取恶意核心片段（命令执行/网络/Base64 解密等） | ✅ 实测通过 |
+| **回连分析** | 进程 ESTABLISHED 外连分析 + 字节码字符串中的 IP/域名提取 | ✅ |
+| **Callback 汇总** | 疑似回连地址统一汇总为 HIGH Finding（供威胁情报查询） | ✅ |
+| **堆取证** | jmap 跨平台 heap dump + hprof 深度解析（字符串/类名/恶意特征/字节码统计） | ✅ v2.5 |
+| **威胁情报** | --analyze 自动查询回连 IP（微步 API + 启发式降级），隧道端口判 HIGH | ✅ v2.4 |
 
 ## 双程序架构（防取证识别）
 
@@ -229,31 +228,57 @@ java -javaagent:/path/to/memshell-auditor.jar -jar app.jar
 | 🟡 LOW | 无法解析组件 | 人工复核 |
 | ⚪ INFO | 正常组件/信息 | 记录归档 |
 
+## 特征库（rules/ 内置，类 Metasploit）
+
+特征库已并入主仓库 `rules/` 目录（18 条规则，随版本发版），在线更新 + 增量同步 + 自定义保护 + 众包反哺：
+
+```
+rules/
+├── JMSH-001~018.json   # 检测规则（模板: rules/template.json）
+├── index.json          # 规则索引（提交人/标题/版本）
+└── version             # 策略版本号
+```
+
+- **增量同步**：只更新官方规则，自定义规则（rules-custom/）永不误删
+- **版本联动**：更新失败本地版本自动 bump，banner 显示 partial/failed 状态
+- **众包反哺**：`--analyze` 发现未命中规则的高危项 → `--submit --auto-commit` 自动推送；push 失败降级 GitHub Issue
+- **自定义规则保护**：官方 rules/ + 自定义 rules-custom/ 分离，更新只覆盖官方
+
 ## 项目结构
 
 ```
 src/main/java/com/memshellauditor/
 ├── AgentMain.java           # agent 入口（premain/agentmain，含取证端规则分析）
-├── AuditorMain.java         # CLI 启动器（attach/--gen-agent/--analyze）
+├── AuditorMain.java         # 主程序 CLI（--gen-agent/--analyze/--rules/--submit）
+├── ForensicMain.java        # 取证程序 CLI（--scan/pid/--live）
+├── ScanRunner.java          # 全自动扫描编排（并发审计）
+├── JvmScanner.java          # JVM 进程枚举 + 可疑度评分
 ├── detect/
 │   ├── ContainerAuditor.java    # 容器组件审计（Filter/Servlet/Listener/Valve）
 │   ├── AgentAuditor.java        # 启动参数/Agent 型检测
 │   ├── TransformerAuditor.java  # ClassFileTransformer 审计（Agent 型内存马）
 │   ├── ClassLoaderAuditor.java  # ClassLoader 血缘
 │   ├── ClassFeatureAuditor.java # 类特征 + defineClass 检测
-│   └── HeuristicAuditor.java    # 未知内存马启发式检测（行为模式组合评分）
+│   ├── HeuristicAuditor.java    # 未知内存马启发式检测（行为模式组合评分）
+│   └── LiveTransformer.java     # 实时监控（定义时捕获字节码，v2.3+）
 ├── dump/
 │   ├── ForensicsService.java    # 取证闭环编排（dump+反编译+回连）
 │   ├── ClassDumper.java         # 字节码提取落盘（retransform 技巧）
 │   ├── Decompiler.java          # javap 反汇编 + 核心代码提取
 │   ├── NetworkAnalyzer.java     # 进程外连分析
-│   └── MemoryForensics.java     # 跨平台堆内存取证（jmap）
+│   ├── MemoryForensics.java     # 跨平台堆内存取证（jmap）
+│   └── HprofParser.java         # hprof 深度解析（v2.5+）
 ├── ai/
 │   ├── AiClient.java        # OpenAI 通用兼容客户端（零依赖）
 │   └── AiAnalyzer.java      # AI 增强分析（引导式配置/跳过/降级）
+├── threat/
+│   └── ThreatIntelClient.java   # 威胁情报查询（微步 API + 启发式，v2.4+）
 ├── obf/
 │   ├── ClassRewriter.java       # class 常量池重写器（字节码级混淆）
 │   └── ObfuscateAgentGenerator.java # 混淆取证程序生成器
+├── rules/
+│   ├── Rule.java / RuleEngine.java / RuleStore.java / RuleUpdater.java / SubmitCollector.java
+│   └── TinyJson.java            # 极简 JSON 解析器（零依赖）
 ├── report/
 │   ├── Finding.java         # 发现项（level/signal/category）
 │   └── Report.java          # 报告聚合（控制台/JSON/重建）
@@ -263,11 +288,17 @@ src/main/java/com/memshellauditor/
 
 ## 局限性（坦诚声明）
 
-1. **JMG 混淆载荷的 dump 限制**：Behinder 等规整载荷可完整 dump+反编译；Suo5 等经过激进 ASM 处理的载荷，JVM 拒绝 retransform（invalid class）——此类依赖 jmap 堆 dump 兜底，CodeSource=null 仍可作为 A1 补充证据
-2. **Agent 型内存马（Instrumentation transformer 注入）**：JDK 标准 API 无法枚举已注册的 ClassFileTransformer，通过内部字段探测 + 类特征间接检测（高版本 JDK 部分受限）
-3. **回连分析噪声**：lsof 会混入本机其他服务的连接（代理/远程控制等），需结合 dump 代码中的硬编码 IP 与威胁情报确认
+1. **JMG 混淆载荷的 dump 限制**：Behinder 等规整载荷可完整 dump+反编译；Suo5 等经过激进 ASM 处理的载荷，JVM 拒绝 retransform（invalid class）——此类由 **--live 定义时捕获** + **hprof 堆解析**双兜底
+2. **Agent 型内存马（Instrumentation transformer 注入）**：JDK 标准 API 无法枚举已注册的 ClassFileTransformer，通过 `getAllLoadedClasses` 类特征 + 内部字段探测间接检测（高版本 JDK 部分受限）
+3. **回连分析噪声**：lsof 会混入本机其他服务的连接（代理/远程控制等），已集成威胁情报自动判定，特殊场景仍需人工复核
 4. **容器定位依赖 WebappClassLoader**：极度精简的 classpath 模式（非 WAR 部署）可能定位不到 StandardContext
-5. **运行时窗口**：attach 只能看到当前已加载的类；内存马在 attach 前已执行完的恶意行为不在检测范围
+5. **运行时窗口**：attach 只能看到当前已加载的类；`--live` 模式可覆盖后续注入，attach 前已执行完的恶意行为不在检测范围
+
+## Contributing
+
+- **提 Issue/PR**：https://github.com/x7peeps/memshell-auditor/issues
+- **贡献特征规则**：见 [CONTRIBUTING-RULES.md](CONTRIBUTING-RULES.md)，模板在 `rules/template.json`
+- **开发记录/踩坑**：见 [evidence/20-v2-devlog.md](evidence/20-v2-devlog.md)
 
 ## License
 
