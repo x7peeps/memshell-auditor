@@ -97,6 +97,11 @@ public class ForensicMain {
             if (live != null) {
                 agentArgs.append(",live=").append(live.isEmpty() ? "60" : live);
             }
+            // 值守监控模式：--monitor <config.json> webhook 实时推送
+            String monitor = opts.get("--monitor");
+            if (monitor != null && !monitor.isEmpty()) {
+                agentArgs.append(",monitor=").append(new File(monitor).getAbsolutePath());
+            }
             Method loadAgent = vmClass.getMethod("loadAgent", String.class, String.class);
             loadAgent.invoke(vm, agentJar.getAbsolutePath(), agentArgs.toString());
             System.out.println("[*] 取证完成，报告: " + new File(out).getAbsolutePath());

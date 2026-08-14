@@ -1,0 +1,9 @@
+{
+  "webhook": {
+    "url": "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN",
+    "type": "dingtalk",
+    "min_level": "HIGH"
+  },
+  "live_seconds": 86400,
+  "interval_seconds": 120
+}

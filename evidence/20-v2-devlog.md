@@ -304,3 +304,25 @@ hprof 解析: 字符串 80103 条 / 类 3389 个 / 恶意特征命中 1294 / 类
 ```
 
 **踩坑（hprof 文件头格式）**：idSize 是 **u4（4 字节大端）** 不是 u1——JDK 26 jmap 输出 idSize=0x00000008；读 1 字节得 0x00 导致记录解析全错。用 hexdump 逐字节诊断才定位（HprofDebug）。
+
+## 问题 19：监控模式 webhook 实时推送（值守客户现场场景）
+
+**需求（老大）**：值守客户现场时，希望检测数据通过 webhook 实时同步出来（企业微信/钉钉/飞书群），配置在配置文件中。
+
+**实现**（v2.7）：
+1. WebhookClient: 企业微信/钉钉/飞书/generic 四平台 markdown 消息推送，零依赖
+2. MonitorEngine: monitor.json 配置解析（webhook url/type/min_level/live_seconds/interval_seconds）+ 定时汇总推送
+3. AgentMain --monitor <config.json> 集成: attach 后持续监控，捕获可疑类实时推送到 webhook
+4. ForensicMain --monitor 参数传递 + monitor.example.json / monitor.dingtalk.example.json 模板
+
+**验证**（LiveTestTarget2 延迟注入真实冰蝎载荷）：
+```
+[webhook] POST /webhook | msgtype: markdown
+### 🚨 内存马监控告警: 1 条高危 / 共 1 条
+**目标**: LiveTestTarget2 | **时间**: 2026-08-14 11:15:47
+- **[HIGH]** 捕获可疑动态加载类: org.springframework.ServletRequestAujFilter
+  类名: ... | 字节码: 4195B | dump: /tmp/mon-dump
+```
+注入 → 实时捕获 → 企业微信 markdown 推送全链路通过。
+
+**用途**：值守场景一条命令挂上，攻击者注入内存马瞬间群机器人告警，无需人工盯屏。

@@ -105,12 +105,28 @@ public class AgentMain {
                     "规则引擎异常: " + t, null));
         }
 
-        // ===== 实时监控模式（--live）：attach 后保持监听，捕获后续新注入类 =====
+        // ===== 实时监控模式（--live / --monitor）：attach 后保持监听，捕获后续新注入类 =====
         String liveSeconds = opts.get("live");
+        String monitorConfigPath = opts.get("monitor");
+        com.memshellauditor.monitor.MonitorEngine.MonitorSession monitorSession = null;
+        if (monitorConfigPath != null) {
+            try {
+                com.memshellauditor.monitor.MonitorEngine.MonitorConfig mcfg =
+                        com.memshellauditor.monitor.MonitorEngine.parseConfig(new File(monitorConfigPath));
+                monitorSession = new com.memshellauditor.monitor.MonitorEngine.MonitorSession(
+                        mcfg, System.getProperty("sun.java.command", "?"));
+                if (liveSeconds == null) liveSeconds = String.valueOf(mcfg.liveSeconds);
+                System.out.println("[monitor] 值守监控已配置 webhook: " + mcfg.webhookType
+                        + " (min_level=" + mcfg.minLevel + ", interval=" + mcfg.intervalSeconds + "s)");
+            } catch (Throwable t) {
+                System.out.println("[monitor] 监控配置解析失败: " + t);
+            }
+        }
         if (liveSeconds != null) {
             try {
                 final Report liveReport = report;
                 final java.io.File liveDumpDir = dumpDir != null ? new File(dumpDir) : null;
+                final com.memshellauditor.monitor.MonitorEngine.MonitorSession mSession = monitorSession;
                 com.memshellauditor.detect.LiveTransformer.enable(inst, new com.memshellauditor.detect.LiveTransformer.LiveListener() {
                     @Override
                     public void onNewClass(ClassLoader loader, String className,
@@ -139,6 +155,12 @@ public class AgentMain {
                                         System.out.println("[live] dump: " + f.getAbsolutePath());
                                     } catch (Throwable ignored) {}
                                 }
+                                // webhook 实时推送（值守监控模式）
+                                if (mSession != null) {
+                                    mSession.reportFinding("HIGH", "捕获可疑动态加载类: " + name,
+                                            "类名: " + name + " | 字节码: " + classfileBuffer.length + "B | dump: "
+                                                    + (liveDumpDir != null ? liveDumpDir.getAbsolutePath() : "未启用"));
+                                }
                             }
                         } catch (Throwable ignored) {}
                     }
@@ -153,6 +175,10 @@ public class AgentMain {
                     Thread.sleep(1000 * secs);
                 } catch (InterruptedException ignored) {}
                 System.out.println("[live] 实时监控结束（共 " + secs + " 秒）");
+                if (monitorSession != null) {
+                    monitorSession.close();
+                    System.out.println("[monitor] 值守监控结束，剩余发现已推送");
+                }
             } catch (Throwable t) {
                 System.err.println("[live] 实时监控启用失败: " + t);
             }

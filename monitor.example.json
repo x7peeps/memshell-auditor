@@ -1,0 +1,9 @@
+{
+  "webhook": {
+    "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY",
+    "type": "wecom",
+    "min_level": "MEDIUM"
+  },
+  "live_seconds": 3600,
+  "interval_seconds": 60
+}
