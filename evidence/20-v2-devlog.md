@@ -347,3 +347,22 @@ hprof 解析: 字符串 80103 条 / 类 3389 个 / 恶意特征命中 1294 / 类
 - 规则缓存: "策略版本 1.1.0（与本地一致，跳过下载）" ✓
 
 **设计决策**：主程序不直接 --monitor attach（防暴露违背双程序架构），监控能力只在取证程序，主程序 usage 提示。
+
+## 问题 21：国产中间件适配 + AI 技能 + README 重构
+
+**国产中间件适配（老大）**：
+- findContexts 不再因 StandardContext 类名不同而跳过：兼容 Tomcat + TongWeb/BES/InforSuite/Apusic/Primeton 的 6 种类名
+- resources 拿不到时直接取 Loader.context/contextClass 字段
+- 兜底：StandardContext 类存在时遍历已加载类收集实例
+- 回归：Tomcat 10 靶场 HIGH 命中 ServletRequestAujFilter 不变 ✅
+
+**AI Agent 技能（docs/AGENT-SKILL.md）**：
+- 设计目的：AI agent（Hermes/Claude 等）如何正确使用本产品
+- 关键约束：双程序架构（主程序不 attach，防暴露）；取证程序无 AI
+- 触发场景/架构速览/使用流程/信号解读/AI 分析要点/配置/陷阱
+
+**README 重构（老大要求）**：
+- 技术研究文档移到个人主页（《Java 内存马应急检测实战》），README 放引用
+- README 瘦身：展示 + Quick Install + Quick Start + 实测 + 文档导航
+- docs/USAGE.md 详细参数说明（CLI/环境变量/输出格式/退出码）
+- docs/RULES.md 规则库参数详情（格式/信号体系/内置规则清单/编写/维护）

@@ -102,6 +102,8 @@ public class AiClient {
                 os.close();
 
                 int code = conn.getResponseCode();
+                String dbg = System.getProperty("ai.debug");
+                if ("true".equals(dbg)) System.out.println("[ai.debug] HTTP " + code + " body_len=" + (code >= 200 && code < 300 ? readAll(conn.getInputStream()).length() : -1));
                 if (code >= 200 && code < 300) {
                     return parseChatResponse(readAll(conn.getInputStream()));
                 } else if (code >= 500 || code == 429) {
@@ -146,20 +148,40 @@ public class AiClient {
     }
 
     private String parseChatResponse(String json) {
-        try {
-            // 极简解析：取第一个 "content":"..." 
-            String contentKey = "\"content\":\"";
-            int idx = json.indexOf(contentKey);
-            if (idx < 0) return null;
-            int start = idx + contentKey.length();
-            int end = json.indexOf('"', start);
-            if (end < 0) return null;
-            return json.substring(start, end)
-                    .replace("\\n", "\n").replace("\\\"", "\"").replace("\\\\", "\\");
-        } catch (Throwable t) {
-            return null;
+            try {
+                // DeepSeek v4-flash 思考链模式："content":"" 在前，真正内容在 reasoning_content 之后
+                // 兼容策略：找所有 "content":"..."，取最后一个非空的
+                String contentKey = "\"content\":\"";
+                int searchFrom = 0;
+                String lastNonEmpty = null;
+                while (true) {
+                    int idx = json.indexOf(contentKey, searchFrom);
+                    if (idx < 0) break;
+                    int start = idx + contentKey.length();
+                    int end = findUnescapedQuote(json, start);
+                    if (end < 0) break;
+                    String candidate = json.substring(start, end)
+                            .replace("\\n", "\n").replace("\\\"", "\"").replace("\\\\", "\\");
+                    if (!candidate.isEmpty()) {
+                        lastNonEmpty = candidate;
+                    }
+                    searchFrom = end + 1;
+                }
+                return lastNonEmpty;
+            } catch (Throwable t) {
+                return null;
+            }
         }
-    }
+
+        /** 找下一个未转义的"字符（处理 \" 转义） */
+        private static int findUnescapedQuote(String s, int from) {
+            for (int i = from; i < s.length(); i++) {
+                char c = s.charAt(i);
+                if (c == '\\' && i + 1 < s.length()) { i++; continue; }
+                if (c == '"') return i;
+            }
+            return -1;
+        }
 
     private static String readAll(InputStream in) throws Exception {
         if (in == null) return "";

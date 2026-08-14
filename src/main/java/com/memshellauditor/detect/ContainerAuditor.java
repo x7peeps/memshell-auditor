@@ -73,12 +73,18 @@ public class ContainerAuditor {
             Class<?> stdCtxClass = null;
             for (Class<?> cls : loaded) {
                 if (cls == null) continue;
-                if (cls.getName().equals("org.apache.catalina.core.StandardContext")) {
+                String cn = cls.getName();
+                // 兼容 Tomcat 与国产中间件（TongWeb/BES/InforSuite/Apusic/Primeton）的 StandardContext 类名
+                if (cn.equals("org.apache.catalina.core.StandardContext")
+                        || cn.equals("com.tongweb.catalina.core.StandardContext")
+                        || cn.equals("com.tongweb.catalina.Context")
+                        || cn.equals("com.bes.core.StandardContext")
+                        || cn.equals("com.bes.core.ApplicationContext")
+                        || cn.endsWith("core.StandardContext")) {
                     stdCtxClass = cls;
                     break;
                 }
             }
-            if (stdCtxClass == null) return found;
 
             // 方式1: 遍历已加载类，通过类.getClassLoader() 拿到 WebappClassLoaderBase 实例
             //   WebappClassLoaderBase.resources(字段) -> StandardRoot.getContext() -> StandardContext
@@ -100,13 +106,33 @@ public class ContainerAuditor {
                             resources = ReflectUtil.invokeNoArgs(cl, "getResources");
                         }
                         if (resources != null) {
-                            Object ctx = ReflectUtil.invokeNoArgs(resources, "getContext");
+                            Object ctx = null;
+                            // 兼容: StandardRoot.getContext() / WebResourceRoot.getContext()
+                            try { ctx = ReflectUtil.invokeNoArgs(resources, "getContext"); } catch (Throwable ignored) {}
+                            if (ctx == null) {
+                                // 国产中间件可能用 context 字段
+                                ctx = ReflectUtil.getField(resources, "context");
+                            }
                             if (ctx != null && !found.contains(ctx)) found.add(ctx);
+                        } else {
+                            // resources 拿不到时，直接尝试从 Loader 的 context/contextClass 字段取
+                            Object ctxDirect = ReflectUtil.getField(cl, "context");
+                            if (ctxDirect == null) ctxDirect = ReflectUtil.getField(cl, "contextClass");
+                            if (ctxDirect != null && !found.contains(ctxDirect)) found.add(ctxDirect);
                         }
                     } catch (Throwable ignored) {
                     }
                 }
             } catch (Throwable ignored) {
+            }
+            // 兜底: 若通过 Loader 未找到上下文，但存在 StandardContext 类 → 遍历已加载类收集实例
+            if (found.isEmpty() && stdCtxClass != null) {
+                for (Class<?> cls : loaded) {
+                    if (cls == null) continue;
+                    if (stdCtxClass.isAssignableFrom(cls)) {
+                        if (!found.contains(cls)) found.add(cls);
+                    }
+                }
             }
 
             // 方式2: MBeanServer 定位（Tomcat 默认注册 Catalina:type=Context MBean）
